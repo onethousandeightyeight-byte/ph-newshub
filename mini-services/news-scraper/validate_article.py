@@ -12,15 +12,150 @@ from typing import Dict, List, Optional
 from urllib.parse import urlparse
 import requests
 from bs4 import BeautifulSoup
+from dateutil import parser
+from datetime import datetime
+
+
+def _extract_title(soup: BeautifulSoup) -> str:
+    """Extract article title from HTML."""
+    # Try common title selectors
+    selectors = [
+        'h1.entry-title',
+        'h1.article-title', 
+        'h1.post-title',
+        'h1.title',
+        'h1',
+        'title'
+    ]
+    
+    for selector in selectors:
+        title_elem = soup.select_one(selector)
+        if title_elem:
+            title = title_elem.get_text().strip()
+            if len(title) > 10:  # Ensure it's a real title
+                return title
+    
+    return "Untitled Article"
+
+
+def _extract_content(soup: BeautifulSoup) -> str:
+    """Extract article content from HTML."""
+    # Remove unwanted elements first
+    for unwanted in soup.select('script, style, nav, footer, header, .ads, .social-share, .related-articles, .comments'):
+        unwanted.decompose()
+    
+    # Try common content selectors
+    selectors = [
+        'div.entry-content',
+        'div.article-content',
+        'div.post-content',
+        'div.content',
+        'article',
+        'div.article-body',
+        'div.story-body',
+        'main'
+    ]
+    
+    for selector in selectors:
+        content_elem = soup.select_one(selector)
+        if content_elem:
+            content = content_elem.get_text(separator=' ', strip=True)
+            if len(content) > 200:  # Ensure substantial content
+                return content
+    
+    # Fallback to body text
+    body = soup.find('body')
+    if body:
+        return body.get_text(separator=' ', strip=True)
+    
+    return ""
+
+
+def _extract_author(soup: BeautifulSoup) -> str:
+    """Extract author name from HTML."""
+    selectors = [
+        'span.author',
+        'a.author',
+        'meta[name="author"]',
+        'meta[property="article:author"]',
+        '.byline',
+        '.author-name'
+    ]
+    
+    for selector in selectors:
+        author_elem = soup.select_one(selector)
+        if author_elem:
+            if author_elem.name == 'meta':
+                author = author_elem.get('content')
+            else:
+                author = author_elem.get_text()
+            
+            if author and len(author.strip()) > 0:
+                return author.strip()
+    
+    return "Unknown Author"
+
+
+def _extract_published_date(soup: BeautifulSoup) -> Optional[datetime]:
+    """Extract publication date from HTML."""
+    # Try common date selectors and attributes
+    selectors = [
+        'time.published',
+        'time.entry-date',
+        'meta[property="article:published_time"]',
+        'meta[name="publishdate"]',
+        'meta[name="date"]',
+        '.published-date',
+        '.entry-date'
+    ]
+    
+    for selector in selectors:
+        date_elem = soup.select_one(selector)
+        if date_elem:
+            if date_elem.name == 'meta':
+                date_str = date_elem.get('content')
+            else:
+                date_str = date_elem.get('datetime') or date_elem.get_text()
+            
+            if date_str:
+                try:
+                    # Try parsing various date formats
+                    return parser.parse(date_str)
+                except:
+                    continue
+    
+    return None
+
+
+def _extract_image_url(soup: BeautifulSoup) -> Optional[str]:
+    """Extract main article image URL."""
+    # Try Open Graph image first
+    og_image = soup.select_one('meta[property="og:image"]')
+    if og_image and og_image.get('content'):
+        return og_image['content']
+    
+    # Try Twitter card image
+    twitter_image = soup.select_one('meta[name="twitter:image"]')
+    if twitter_image and twitter_image.get('content'):
+        return twitter_image['content']
+    
+    # Try article image selectors
+    selectors = [
+        'img.article-image',
+        'img.featured-image',
+        '.entry-image img',
+        'article img'
+    ]
+    
+    for selector in selectors:
+        img_elem = soup.select_one(selector)
+        if img_elem and img_elem.get('src'):
+            return img_elem['src']
+    
+    return None
 
 
 class ArticleValidator:
-    """
-    Validates news articles against quality and trust criteria.
-    Implements the "Rubbish Filter" logic.
-    """
-    
-    def __init__(self, config: Dict):
         """
         Initialize validator with configuration.
         
@@ -300,23 +435,16 @@ def fetch_and_validate(url: str, config: Dict) -> Dict:
         # Parse HTML
         soup = BeautifulSoup(response.text, 'html.parser')
         
-        # Extract content (this is a basic extraction - customize per source)
-        # Remove script and style elements
-        for script in soup(['script', 'style', 'nav', 'footer', 'header']):
-            script.decompose()
+        # Extract title with better selectors
+        title = _extract_title(soup)
         
-        # Try to find article content
-        article_content = soup.find('article') or soup.find('main') or soup.find('div', class_=re.compile('content|article|post', re.I))
+        # Extract content with better parsing
+        content = _extract_content(soup)
         
-        if article_content:
-            content = article_content.get_text(strip=True)
-        else:
-            # Fallback to body
-            content = soup.get_text(strip=True)
-        
-        # Extract title
-        title_tag = soup.find('h1') or soup.find('title')
-        title = title_tag.get_text(strip=True) if title_tag else ''
+        # Extract additional metadata
+        author = _extract_author(soup)
+        published_date = _extract_published_date(soup)
+        image_url = _extract_image_url(soup)
         
         # Validate
         validator = ArticleValidator(config.get('quality_filter', {}))
@@ -328,6 +456,9 @@ def fetch_and_validate(url: str, config: Dict) -> Dict:
                 'url': url,
                 'title': title,
                 'content': content,
+                'author': author,
+                'published_date': published_date.isoformat() if published_date else None,
+                'image_url': image_url,
                 'word_count': validation_result['word_count'],
                 'validation': validation_result
             }

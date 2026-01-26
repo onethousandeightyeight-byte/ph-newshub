@@ -125,7 +125,8 @@ export async function POST(request: NextRequest) {
       publishedAt,
       imageUrl,
       categoryId,
-      sourceDomain
+      sourceDomain,
+      author
     } = body
 
     // Validate required fields
@@ -163,6 +164,7 @@ export async function POST(request: NextRequest) {
         originalUrl,
         publishedAt: publishedAt ? new Date(publishedAt) : new Date(),
         imageUrl,
+        author,
         wordCount,
         categoryId,
         sourceId: source.id

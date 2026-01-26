@@ -73,43 +73,95 @@ class NewsScraper:
     def scrape_source(self, source: Dict):
         """
         Scrape articles from a single news source.
-        Note: This is a simplified implementation. In production,
-        you would implement source-specific parsers.
-        
-        Args:
-            source: Source configuration dictionary
         """
-        # For demonstration, we'll create a few test URLs
-        # In production, implement actual RSS/HTML parsing per source
+        domain = source['domain']
+        print(f"  Discovering articles from {domain}...")
         
-        base_url = f"https://{source['domain']}"
-        test_articles = self._get_test_articles(base_url, source['name'])
+        # Try RSS feeds first, then fallback to manual discovery
+        article_urls = self._discover_articles_from_rss(domain)
         
-        for article_url in test_articles:
-            self.scrape_article(article_url, source['domain'])
+        if not article_urls:
+            # Fallback to manual URL generation (limited)
+            article_urls = self._get_fallback_articles(f"https://{domain}")
+        
+        print(f"  Found {len(article_urls)} potential articles")
+        
+        for url in article_urls[:5]:  # Limit to 5 articles per source
+            self.scrape_article(url, domain)
+            time.sleep(1)  # Rate limiting
     
-    def _get_test_articles(self, base_url: str, source_name: str) -> List[str]:
+    def _discover_articles_from_rss(self, domain: str) -> List[str]:
         """
-        Generate test article URLs for demonstration.
-        In production, replace with actual URL discovery logic.
+        Discover articles from RSS feeds.
         
         Args:
-            base_url: Base URL of the source
-            source_name: Name of the source
+            domain: News source domain
             
         Returns:
             List of article URLs
         """
-        # This is a placeholder - in production, implement RSS parsing
-        # or HTML scraping to discover actual article URLs
-        
-        test_articles = [
-            f"{base_url}/news/philippines/{int(datetime.now().timestamp())}",
-            f"{base_url}/business/{int(datetime.now().timestamp()) - 3600}",
-            f"{base_url}/sports/{int(datetime.now().timestamp()) - 7200}"
+        rss_urls = [
+            f"https://{domain}/feed/",
+            f"https://{domain}/rss/",
+            f"https://{domain}/rss.xml",
+            f"https://{domain}/feed/rss/",
+            f"https://{domain}/news/rss/",
         ]
         
-        return test_articles
+        for rss_url in rss_urls:
+            try:
+                response = requests.get(rss_url, timeout=10, headers={
+                    'User-Agent': self.scraper_config.get('user_agent', 'PH-NewsHub/1.0')
+                })
+                
+                if response.status_code == 200:
+                    # Parse RSS feed
+                    soup = BeautifulSoup(response.content, 'xml')
+                    items = soup.find_all('item')
+                    
+                    urls = []
+                    for item in items[:10]:  # Get latest 10 articles
+                        link = item.find('link')
+                        if link and link.text:
+                            urls.append(link.text.strip())
+                    
+                    if urls:
+                        print(f"  ✓ Found {len(urls)} articles from RSS: {rss_url}")
+                        return urls
+                        
+            except Exception as e:
+                continue
+        
+        return []
+    
+    def _get_fallback_articles(self, base_url: str) -> List[str]:
+        """
+        Fallback method to generate potential article URLs.
+        This is less reliable than RSS feeds.
+        
+        Args:
+            base_url: Base URL of the source
+            
+        Returns:
+            List of potential article URLs
+        """
+        # Common article URL patterns for news sites
+        current_time = int(datetime.now().timestamp())
+        
+        patterns = [
+            f"{base_url}/news/{{}}",
+            f"{base_url}/article/{{}}",
+            f"{base_url}/story/{{}}",
+            f"{base_url}/{{}}",
+        ]
+        
+        urls = []
+        for pattern in patterns:
+            for i in range(5):  # Generate 5 URLs per pattern
+                article_id = current_time - (i * 3600)  # Different timestamps
+                urls.append(pattern.format(article_id))
+        
+        return urls[:10]  # Return max 10 URLs
     
     def scrape_article(self, url: str, source_domain: str) -> Optional[Dict]:
         """
@@ -143,10 +195,11 @@ class NewsScraper:
                 'snippet': result['content'][:200] + '...',
                 'contentBody': result['content'],
                 'originalUrl': url,
-                'publishedAt': datetime.now().isoformat(),
-                'imageUrl': None,  # Would extract from HTML in production
+                'publishedAt': result.get('published_date') or datetime.now().isoformat(),
+                'imageUrl': result.get('image_url'),
                 'categoryId': self._get_category_id(result['content'], result['title']),
-                'sourceDomain': source_domain
+                'sourceDomain': source_domain,
+                'author': result.get('author', 'Unknown Author')
             }
             
             # Store via API
@@ -164,7 +217,7 @@ class NewsScraper:
             self.stats['storage_failed'] += 1
             return None
     
-    def _get_category_id(self, content: str, title: str) -> str:
+    def _get_category_id(self, content: str, title: str) -> int:
         """
         Get category ID based on article content and title.
         
@@ -173,10 +226,27 @@ class NewsScraper:
             title: Article title
             
         Returns:
-            Category slug (default: 'general')
+            Category ID (integer)
         """
         from config_loader import classify_article
-        return classify_article(content, title, self.config)
+        
+        # Get category slug
+        category_slug = classify_article(content, title, self.config)
+        
+        # Map common slugs to database IDs (you may need to adjust these)
+        # In production, you'd query the database for the actual IDs
+        category_mapping = {
+            'general': 1,
+            'politics': 2,
+            'business': 3,
+            'sports': 4,
+            'entertainment': 5,
+            'technology': 6,
+            'health': 7,
+            'world': 8
+        }
+        
+        return category_mapping.get(category_slug, 1)  # Default to general
     
     def _store_article(self, article_data: Dict) -> bool:
         """

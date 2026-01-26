@@ -1,6 +1,3 @@
-// PH-NewsHub - Philippine News Aggregation Platform
-// Database Schema with Self-Referencing Categories for Infinite Nesting
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -10,69 +7,58 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// User Model with Role-Based Access Control
 model User {
-  id               String  @id @default(cuid())
-  email            String  @unique
+  id               String   @id @default(cuid())
+  email            String   @unique
   name             String?
   role             UserRole @default(GUEST)
-  stripeCustomerId String?  @unique
+  stripeCustomerId String?
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 }
 
-enum UserRole {
-  GUEST
-  SUBSCRIBER
-  ADMIN
-}
-
-// Category Model with Self-Referencing Relation for Infinite Nesting
-// Example: Sports > Basketball > PBA > Barangay Ginebra
 model Category {
   id        String     @id @default(cuid())
   name      String
   slug      String     @unique
   parentId  String?
-  parent    Category?  @relation("CategoryHierarchy", fields: [parentId], references: [id], onDelete: Restrict)
-  children  Category[] @relation("CategoryHierarchy")
-  articles  Article[]
   createdAt DateTime   @default(now())
   updatedAt DateTime   @updatedAt
+  articles  Article[]
+  parent    Category?  @relation("CategoryHierarchy", fields: [parentId], references: [id], onDelete: Restrict)
+  children  Category[] @relation("CategoryHierarchy")
 
   @@index([parentId])
-  @@index([slug])
 }
 
-// News Source Model - Trusted Philippine News Outlets
 model Source {
-  id          String    @id @default(cuid())
-  domainUrl   String    @unique
-  name        String?
-  isTrusted   Boolean   @default(true)
-  articles    Article[]
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  id        String    @id @default(cuid())
+  domainUrl String    @unique
+  name      String?
+  isTrusted Boolean   @default(true)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  articles  Article[]
 
   @@index([isTrusted])
 }
 
-// Article Model - Core News Content
 model Article {
-  id          String    @id @default(cuid())
+  id          String   @id @default(cuid())
   title       String
   snippet     String
   contentBody String
   wordCount   Int
-  originalUrl String    @unique
+  originalUrl String   @unique
   publishedAt DateTime
   imageUrl    String?
+  author      String?
   categoryId  String
-  category    Category  @relation(fields: [categoryId], references: [id], onDelete: Restrict)
   sourceId    String
-  source      Source    @relation(fields: [sourceId], references: [id], onDelete: Restrict)
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  category    Category @relation(fields: [categoryId], references: [id])
+  source      Source   @relation(fields: [sourceId], references: [id])
 
   @@index([publishedAt])
   @@index([categoryId])
@@ -80,18 +66,23 @@ model Article {
   @@index([wordCount])
 }
 
-// Ad Placement Model - Native Advertisement System
 model AdPlacement {
-  id          String    @id @default(cuid())
-  clientName  String
-  targetUrl   String
-  imageAsset  String
-  altText     String?
-  isActive    Boolean   @default(true)
-  position    Int       // Position in feed (e.g., every 6th item)
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  id         String   @id @default(cuid())
+  clientName String
+  targetUrl  String
+  imageAsset String
+  altText    String?
+  isActive   Boolean  @default(true)
+  position   Int
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 
   @@index([isActive])
   @@index([position])
+}
+
+enum UserRole {
+  GUEST
+  SUBSCRIBER
+  ADMIN
 }
