@@ -28,33 +28,40 @@ export async function GET(request: NextRequest) {
 
     if (flat) {
       // Return flat list with parent info
-      const flatCategories = await Promise.all(
-        categories.map(async (category) => {
-          let parentName: string | null = null
-          if (category.parentId) {
-            const parent = await db.category.findUnique({
-              where: { id: category.parentId },
-              select: { name: true }
-            })
-            parentName = parent?.name || null
-          }
+      // Fetch all parent categories in one query to avoid N+1
+      const parentIds = categories
+        .filter(cat => cat.parentId)
+        .map(cat => cat.parentId as string)
+      
+      const parents = await db.category.findMany({
+        where: { id: { in: parentIds } },
+        select: { id: true, name: true }
+      })
+      
+      const parentMap = new Map(parents.map(p => [p.id, p.name]))
+      
+      const flatCategories = categories.map((category) => ({
+        id: category.id,
+        name: category.name,
+        slug: category.slug,
+        parentId: category.parentId,
+        parentName: category.parentId ? parentMap.get(category.parentId) || null : null
+      }))
 
-          return {
-            id: category.id,
-            name: category.name,
-            slug: category.slug,
-            parentId: category.parentId,
-            parentName
-          }
-        })
-      )
-
-      return NextResponse.json(flatCategories)
+      return NextResponse.json(flatCategories, {
+        headers: {
+          'Cache-Control': 'public, s-maxage=3600, stale-while-revalidate=86400'
+        }
+      })
     }
 
     // Return hierarchical structure
     const rootCategories = categories.filter(cat => !cat.parentId)
-    return NextResponse.json(rootCategories)
+    return NextResponse.json(rootCategories, {
+      headers: {
+        'Cache-Control': 'public, s-maxage=3600, stale-while-revalidate=86400'
+      }
+    })
   } catch (error) {
     console.error('Error fetching categories:', error)
     return NextResponse.json(

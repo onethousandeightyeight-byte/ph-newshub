@@ -44,26 +44,40 @@ model Source {
 }
 
 model Article {
-  id          String   @id @default(cuid())
+  id          String          @id @default(cuid())
   title       String
   snippet     String
   contentBody String
   wordCount   Int
-  originalUrl String   @unique
+  originalUrl String          @unique
   publishedAt DateTime
   imageUrl    String?
   author      String?
   categoryId  String
   sourceId    String
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  category    Category @relation(fields: [categoryId], references: [id])
-  source      Source   @relation(fields: [sourceId], references: [id])
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  category    Category        @relation(fields: [categoryId], references: [id])
+  source      Source          @relation(fields: [sourceId], references: [id])
+  summary     ArticleSummary?
 
   @@index([publishedAt])
   @@index([categoryId])
   @@index([sourceId])
   @@index([wordCount])
+}
+
+model ArticleSummary {
+  id          String   @id @default(cuid())
+  articleId   String   @unique
+  summary     String
+  keyPoints   String[] // Array of key points
+  readTime    String   @default("1 min")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  article     Article  @relation(fields: [articleId], references: [id], onDelete: Cascade)
+
+  @@index([articleId])
 }
 
 model AdPlacement {

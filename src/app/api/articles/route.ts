@@ -67,6 +67,9 @@ export async function GET(request: NextRequest) {
       originalUrl: article.originalUrl
     }))
 
+    // Get total count once (optimization: avoid duplicate queries)
+    const total = await db.article.count({ where })
+
     // Inject ads if requested
     let response
     if (includeAds) {
@@ -80,19 +83,19 @@ export async function GET(request: NextRequest) {
         clientName: ad.clientName,
         targetUrl: ad.targetUrl,
         imageAsset: ad.imageAsset,
-        altText: ad.altText
+        altText: ad.altText ?? undefined
       }))
 
       const feed = injectAds(formattedArticles, formattedAds, DEFAULT_AD_CONFIG)
       response = {
         feed,
-        total: await db.article.count({ where }),
+        total,
         hasMore: formattedArticles.length === limit
       }
     } else {
       response = {
         feed: formattedArticles.map(article => ({ type: 'article' as const, data: article })),
-        total: await db.article.count({ where }),
+        total,
         hasMore: formattedArticles.length === limit
       }
     }

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
@@ -441,6 +441,59 @@ const MOCK_ARTICLES = Array.from({ length: 50 }, (_, i) => {
 // Mock ads
 const MOCK_ADS: AdData[] = Array.from({ length: 4 }, (_, i) => createMockAd(i))
 
+// Category slug to name mapping (moved outside component for performance)
+const CATEGORY_MAP: Record<string, string> = {
+  'sports': 'Sports',
+  'sports-basketball': 'Basketball',
+  'sports-basketball-pba': 'PBA',
+  'sports-basketball-nba': 'NBA',
+  'sports-football': 'Football',
+  'sports-football-azkals': 'Azkals',
+  'sports-boxing': 'Boxing',
+  'sports-boxing-pacquiao': 'Pacquiao',
+  'sports-volleyball': 'Volleyball',
+  'sports-volleyball-pvl': 'PVL',
+  'politics': 'Politics & Government',
+  'politics-national': 'National Government',
+  'politics-congress': 'Congress',
+  'politics-senate': 'Senate',
+  'politics-house': 'House of Representatives',
+  'politics-local': 'Local Government',
+  'politics-lgus': 'LGUs',
+  'politics-elections': 'Elections',
+  'business': 'Business & Economy',
+  'business-market': 'Market & Stocks',
+  'business-psei': 'PSEi',
+  'business-banking': 'Banking & Finance',
+  'business-banks': 'Banks',
+  'business-realestate': 'Real Estate',
+  'business-startup': 'Startups & Tech',
+  'business-trade': 'Trade & Exports',
+  'technology': 'Technology',
+  'tech-ai': 'AI & Innovation',
+  'tech-telecom': 'Telecommunications',
+  'tech-ecommerce': 'E-commerce',
+  'tech-gaming': 'Gaming',
+  'entertainment': 'Entertainment',
+  'ent-movies': 'Movies & TV',
+  'ent-local-film': 'Local Cinema',
+  'ent-music': 'Music',
+  'ent-opm': 'OPM',
+  'ent-celebs': 'Celebrities',
+  'ent-arts': 'Arts & Culture',
+  'news': 'News & Current Events',
+  'news-weather': 'Weather',
+  'news-typhoons': 'Typhoons',
+  'news-crime': 'Crime & Justice',
+  'news-health': 'Health',
+  'news-education': 'Education',
+  'lifestyle': 'Lifestyle',
+  'life-food': 'Food & Dining',
+  'life-travel': 'Travel',
+  'life-auto': 'Automotive',
+  'life-fashion': 'Fashion & Beauty'
+}
+
 export default function Home() {
   const [selectedCategory, setSelectedCategory] = useState('all')
   const [searchQuery, setSearchQuery] = useState('')
@@ -480,69 +533,17 @@ export default function Home() {
   }
 
   // Update category counts when articles change
-  useState(() => {
+  useEffect(() => {
     setSidebarCategories(calculateCategoryCounts(TAXONOMY))
-  })
+  }, [articles])
 
   // Filter articles based on category and search
   const filteredArticles = articles.filter(article => {
     // For 'all', show everything
     if (selectedCategory === 'all') return true
     
-    // Map category slug to category name for comparison
-    const categoryMap: Record<string, string> = {
-      'sports': 'Sports',
-      'sports-basketball': 'Basketball',
-      'sports-basketball-pba': 'PBA',
-      'sports-basketball-nba': 'NBA',
-      'sports-football': 'Football',
-      'sports-football-azkals': 'Azkals',
-      'sports-boxing': 'Boxing',
-      'sports-boxing-pacquiao': 'Pacquiao',
-      'sports-volleyball': 'Volleyball',
-      'sports-volleyball-pvl': 'PVL',
-      'politics': 'Politics & Government',
-      'politics-national': 'National Government',
-      'politics-congress': 'Congress',
-      'politics-senate': 'Senate',
-      'politics-house': 'House of Representatives',
-      'politics-local': 'Local Government',
-      'politics-lgus': 'LGUs',
-      'politics-elections': 'Elections',
-      'business': 'Business & Economy',
-      'business-market': 'Market & Stocks',
-      'business-psei': 'PSEi',
-      'business-banking': 'Banking & Finance',
-      'business-banks': 'Banks',
-      'business-realestate': 'Real Estate',
-      'business-startup': 'Startups & Tech',
-      'business-trade': 'Trade & Exports',
-      'technology': 'Technology',
-      'tech-ai': 'AI & Innovation',
-      'tech-telecom': 'Telecommunications',
-      'tech-ecommerce': 'E-commerce',
-      'tech-gaming': 'Gaming',
-      'entertainment': 'Entertainment',
-      'ent-movies': 'Movies & TV',
-      'ent-local-film': 'Local Cinema',
-      'ent-music': 'Music',
-      'ent-opm': 'OPM',
-      'ent-celebs': 'Celebrities',
-      'ent-arts': 'Arts & Culture',
-      'news': 'News & Current Events',
-      'news-weather': 'Weather',
-      'news-typhoons': 'Typhoons',
-      'news-crime': 'Crime & Justice',
-      'news-health': 'Health',
-      'news-education': 'Education',
-      'lifestyle': 'Lifestyle',
-      'life-food': 'Food & Dining',
-      'life-travel': 'Travel',
-      'life-auto': 'Automotive',
-      'life-fashion': 'Fashion & Beauty'
-    }
-
-    const targetCategory = categoryMap[selectedCategory]
+    // Use the constant category map
+    const targetCategory = CATEGORY_MAP[selectedCategory]
     if (!targetCategory) return true // Fallback to showing all
     
     const articleCatLower = article.categoryName.toLowerCase()
@@ -555,11 +556,12 @@ export default function Home() {
     return articleCatLower.includes(targetCatLower)
   })
 
-  const matchesSearch = filteredArticles.filter(article => {
-    const matchesSearch = article.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         article.snippet.toLowerCase().includes(searchQuery.toLowerCase())
-    return matchesSearch
-  })
+  // Optimize search filtering by caching toLowerCase results
+  const searchQueryLower = searchQuery.toLowerCase()
+  const matchesSearch = filteredArticles.filter(article => 
+    article.title.toLowerCase().includes(searchQueryLower) ||
+    article.snippet.toLowerCase().includes(searchQueryLower)
+  )
 
   // Inject ads for non-subscribers
   const feed: FeedItem[] = isSubscriber 
