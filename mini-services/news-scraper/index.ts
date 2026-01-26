@@ -51,15 +51,15 @@ app.post('/start', (req, res) => {
       pythonProcess = null;
     });
 
-    res.json({ 
-      status: 'started', 
-      message: 'Scraper started successfully' 
+    res.json({
+      status: 'started',
+      message: 'Scraper started successfully'
     });
   } catch (error) {
     console.error('Error starting scraper:', error);
-    res.status(500).json({ 
-      status: 'error', 
-      message: 'Failed to start scraper' 
+    res.status(500).json({
+      status: 'error',
+      message: 'Failed to start scraper'
     });
   }
 });
@@ -73,16 +73,16 @@ app.post('/stop', (req, res) => {
   try {
     pythonProcess.kill('SIGTERM');
     pythonProcess = null;
-    
-    res.json({ 
-      status: 'stopped', 
-      message: 'Scraper stopped successfully' 
+
+    res.json({
+      status: 'stopped',
+      message: 'Scraper stopped successfully'
     });
   } catch (error) {
     console.error('Error stopping scraper:', error);
-    res.status(500).json({ 
-      status: 'error', 
-      message: 'Failed to stop scraper' 
+    res.status(500).json({
+      status: 'error',
+      message: 'Failed to stop scraper'
     });
   }
 });
@@ -92,15 +92,15 @@ app.post('/scrape', async (req, res) => {
   try {
     // For now, return a success message
     // In production, this would trigger a single scrape cycle
-    res.json({ 
-      status: 'triggered', 
-      message: 'Manual scrape triggered' 
+    res.json({
+      status: 'triggered',
+      message: 'Manual scrape triggered'
     });
   } catch (error) {
     console.error('Error triggering scrape:', error);
-    res.status(500).json({ 
-      status: 'error', 
-      message: 'Failed to trigger scrape' 
+    res.status(500).json({
+      status: 'error',
+      message: 'Failed to trigger scrape'
     });
   }
 });
@@ -113,38 +113,40 @@ app.get('/status', (req, res) => {
   });
 });
 
+// Auto-start scraper endpoint
+app.post('/_internal/start', (req, res) => {
+  if (pythonProcess && !pythonProcess.killed) {
+    return res.json({ status: 'running' });
+  }
+
+  try {
+    pythonProcess = spawn('python3', ['scraper.py'], {
+      cwd: process.cwd(),
+      stdio: 'inherit'
+    });
+
+    pythonProcess.on('error', (error) => {
+      console.error('Failed to start Python scraper:', error);
+      pythonProcess = null;
+    });
+
+    pythonProcess.on('exit', (code, signal) => {
+      console.log(`Python scraper exited with code ${code}, signal ${signal}`);
+      pythonProcess = null;
+    });
+
+    console.log('Python scraper started');
+    res.json({ status: 'started' });
+  } catch (error) {
+    console.error('Error starting scraper:', error);
+    res.status(500).json({ status: 'error' });
+  }
+});
+
 // Auto-start scraper
 function autoStartScraper() {
   console.log('Auto-starting Python scraper...');
-  app.post('/_internal/start', (req, res) => {
-    if (pythonProcess && !pythonProcess.killed) {
-      return res.json({ status: 'running' });
-    }
-
-    try {
-      pythonProcess = spawn('python3', ['scraper.py'], {
-        cwd: process.cwd(),
-        stdio: 'inherit'
-      });
-
-      pythonProcess.on('error', (error) => {
-        console.error('Failed to start Python scraper:', error);
-        pythonProcess = null;
-      });
-
-      pythonProcess.on('exit', (code, signal) => {
-        console.log(`Python scraper exited with code ${code}, signal ${signal}`);
-        pythonProcess = null;
-      });
-
-      console.log('Python scraper started');
-      res.json({ status: 'started' });
-    } catch (error) {
-      console.error('Error auto-starting scraper:', error);
-      res.status(500).json({ status: 'error' });
-    }
-  });
-
+  
   // Trigger auto-start after a short delay
   setTimeout(() => {
     fetch(`http://127.0.0.1:${PORT}/_internal/start`, {

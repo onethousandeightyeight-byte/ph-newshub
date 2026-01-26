@@ -21,20 +21,20 @@ def _extract_title(soup: BeautifulSoup) -> str:
     # Try common title selectors
     selectors = [
         'h1.entry-title',
-        'h1.article-title', 
+        'h1.article-title',
         'h1.post-title',
         'h1.title',
         'h1',
         'title'
     ]
-    
+
     for selector in selectors:
         title_elem = soup.select_one(selector)
         if title_elem:
             title = title_elem.get_text().strip()
             if len(title) > 10:  # Ensure it's a real title
                 return title
-    
+
     return "Untitled Article"
 
 
@@ -43,7 +43,7 @@ def _extract_content(soup: BeautifulSoup) -> str:
     # Remove unwanted elements first
     for unwanted in soup.select('script, style, nav, footer, header, .ads, .social-share, .related-articles, .comments'):
         unwanted.decompose()
-    
+
     # Try common content selectors
     selectors = [
         'div.entry-content',
@@ -55,19 +55,19 @@ def _extract_content(soup: BeautifulSoup) -> str:
         'div.story-body',
         'main'
     ]
-    
+
     for selector in selectors:
         content_elem = soup.select_one(selector)
         if content_elem:
             content = content_elem.get_text(separator=' ', strip=True)
             if len(content) > 200:  # Ensure substantial content
                 return content
-    
+
     # Fallback to body text
     body = soup.find('body')
     if body:
         return body.get_text(separator=' ', strip=True)
-    
+
     return ""
 
 
@@ -81,7 +81,7 @@ def _extract_author(soup: BeautifulSoup) -> str:
         '.byline',
         '.author-name'
     ]
-    
+
     for selector in selectors:
         author_elem = soup.select_one(selector)
         if author_elem:
@@ -89,10 +89,10 @@ def _extract_author(soup: BeautifulSoup) -> str:
                 author = author_elem.get('content')
             else:
                 author = author_elem.get_text()
-            
+
             if author and len(author.strip()) > 0:
                 return author.strip()
-    
+
     return "Unknown Author"
 
 
@@ -108,7 +108,7 @@ def _extract_published_date(soup: BeautifulSoup) -> Optional[datetime]:
         '.published-date',
         '.entry-date'
     ]
-    
+
     for selector in selectors:
         date_elem = soup.select_one(selector)
         if date_elem:
@@ -116,14 +116,14 @@ def _extract_published_date(soup: BeautifulSoup) -> Optional[datetime]:
                 date_str = date_elem.get('content')
             else:
                 date_str = date_elem.get('datetime') or date_elem.get_text()
-            
+
             if date_str:
                 try:
                     # Try parsing various date formats
                     return parser.parse(date_str)
                 except:
                     continue
-    
+
     return None
 
 
@@ -133,12 +133,12 @@ def _extract_image_url(soup: BeautifulSoup) -> Optional[str]:
     og_image = soup.select_one('meta[property="og:image"]')
     if og_image and og_image.get('content'):
         return og_image['content']
-    
+
     # Try Twitter card image
     twitter_image = soup.select_one('meta[name="twitter:image"]')
     if twitter_image and twitter_image.get('content'):
         return twitter_image['content']
-    
+
     # Try article image selectors
     selectors = [
         'img.article-image',
@@ -146,26 +146,26 @@ def _extract_image_url(soup: BeautifulSoup) -> Optional[str]:
         '.entry-image img',
         'article img'
     ]
-    
+
     for selector in selectors:
         img_elem = soup.select_one(selector)
         if img_elem and img_elem.get('src'):
             return img_elem['src']
-    
+
     return None
 
 
 class ArticleValidator:
         """
         Initialize validator with configuration.
-        
+
         Args:
             config: Dictionary containing quality filter settings
         """
         self.min_word_count = config.get('min_word_count', 200)
         self.error_phrases = config.get('error_phrases', [])
         self.spam_keywords = config.get('spam_keywords', [])
-        
+
     def validate_article(self, content: str, url: str, title: str = "") -> Dict:
         """
         Main validation function that applies all quality checks.

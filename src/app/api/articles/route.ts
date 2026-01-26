@@ -24,13 +24,13 @@ export async function GET(request: NextRequest) {
 
     // Build query filters
     const where: any = {}
-    
+
     if (categorySlug && categorySlug !== 'all') {
       // Find category by slug
       const category = await db.category.findUnique({
         where: { slug: categorySlug }
       })
-      
+
       if (category) {
         where.categoryId = category.id
       }
@@ -116,7 +116,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    
+
     const {
       title,
       snippet,

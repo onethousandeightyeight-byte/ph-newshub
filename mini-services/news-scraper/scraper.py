@@ -23,23 +23,24 @@ class NewsScraper:
     Main scraper class that coordinates article fetching, validation,
     and storage.
     """
-    
+
     def __init__(self, config_path: str = 'config.json'):
         """
         Initialize scraper with configuration.
-        
+
         Args:
             config_path: Path to configuration file
         """
         self.config = load_config(config_path)
-        self.api_url = self.config.get('api', {}).get('nextjs_api_url', 'http://127.0.0.1:3000/api')
+        self.api_url = self.config.get('api', {}).get(
+            'nextjs_api_url', 'http://127.0.0.1:3000/api')
         self.scraper_config = self.config.get('scraper', {})
         self.trusted_sources = self.config.get('trusted_sources', [])
         self.quality_filter = self.config.get('quality_filter', {})
-        
+
         # Track scraped URLs to avoid duplicates
         self.scraped_urls = set()
-        
+
         # Statistics
         self.stats = {
             'total_attempted': 0,
@@ -47,56 +48,56 @@ class NewsScraper:
             'validation_failed': 0,
             'storage_failed': 0
         }
-    
+
     def scrape_all_sources(self):
         """
         Scrape articles from all trusted sources.
         """
         print(f"\n[{datetime.now()}] Starting scrape cycle...")
-        
+
         for source in self.trusted_sources:
             if source.get('is_trusted', True):
                 print(f"\nScraping: {source['name']} ({source['domain']})")
                 self.scrape_source(source)
-                
+
                 # Respect delay between requests
                 delay = self.scraper_config.get('request_delay', 2)
                 time.sleep(delay)
-        
+
         # Print statistics
         print(f"\nScrape cycle completed:")
         print(f"  Total attempted: {self.stats['total_attempted']}")
         print(f"  Successfully scraped: {self.stats['successfully_scraped']}")
         print(f"  Validation failed: {self.stats['validation_failed']}")
         print(f"  Storage failed: {self.stats['storage_failed']}")
-    
+
     def scrape_source(self, source: Dict):
         """
         Scrape articles from a single news source.
         """
         domain = source['domain']
         print(f"  Discovering articles from {domain}...")
-        
+
         # Try RSS feeds first, then fallback to manual discovery
         article_urls = self._discover_articles_from_rss(domain)
-        
+
         if not article_urls:
             # Fallback to manual URL generation (limited)
             article_urls = self._get_fallback_articles(f"https://{domain}")
-        
+
         print(f"  Found {len(article_urls)} potential articles")
-        
+
         for url in article_urls[:5]:  # Limit to 5 articles per source
             self.scrape_article(url, domain)
             time.sleep(1)  # Rate limiting
-    
+
     def _discover_articles_from_rss(self, domain: str) -> List[str]:
         """
         Discover articles from RSS feeds.
-        
+
         Args:
             domain: News source domain
-            
+
         Returns:
             List of article URLs
         """
@@ -107,88 +108,90 @@ class NewsScraper:
             f"https://{domain}/feed/rss/",
             f"https://{domain}/news/rss/",
         ]
-        
+
         for rss_url in rss_urls:
             try:
                 response = requests.get(rss_url, timeout=10, headers={
                     'User-Agent': self.scraper_config.get('user_agent', 'PH-NewsHub/1.0')
                 })
-                
+
                 if response.status_code == 200:
                     # Parse RSS feed
                     soup = BeautifulSoup(response.content, 'xml')
                     items = soup.find_all('item')
-                    
+
                     urls = []
                     for item in items[:10]:  # Get latest 10 articles
                         link = item.find('link')
                         if link and link.text:
                             urls.append(link.text.strip())
-                    
+
                     if urls:
-                        print(f"  ✓ Found {len(urls)} articles from RSS: {rss_url}")
+                        print(
+                            f"  ✓ Found {len(urls)} articles from RSS: {rss_url}")
                         return urls
-                        
+
             except Exception as e:
                 continue
-        
+
         return []
-    
+
     def _get_fallback_articles(self, base_url: str) -> List[str]:
         """
         Fallback method to generate potential article URLs.
         This is less reliable than RSS feeds.
-        
+
         Args:
             base_url: Base URL of the source
-            
+
         Returns:
             List of potential article URLs
         """
         # Common article URL patterns for news sites
         current_time = int(datetime.now().timestamp())
-        
+
         patterns = [
             f"{base_url}/news/{{}}",
             f"{base_url}/article/{{}}",
             f"{base_url}/story/{{}}",
             f"{base_url}/{{}}",
         ]
-        
+
         urls = []
         for pattern in patterns:
             for i in range(5):  # Generate 5 URLs per pattern
                 article_id = current_time - (i * 3600)  # Different timestamps
                 urls.append(pattern.format(article_id))
-        
+
         return urls[:10]  # Return max 10 URLs
-    
+
     def scrape_article(self, url: str, source_domain: str) -> Optional[Dict]:
         """
         Fetch, validate, and store a single article.
-        
+
         Args:
             url: Article URL
             source_domain: Domain of the source
-            
+
         Returns:
             Article data if successful, None otherwise
         """
         self.stats['total_attempted'] += 1
-        
+
         # Skip if already scraped
         if url in self.scraped_urls:
             return None
-        
+
         try:
             # Fetch and validate
             result = fetch_and_validate(url, self.config)
-            
+
             if not result['valid']:
-                print(f"  ✗ Validation failed: {result.get('reason', 'Unknown')}")
+                print(
+                    f"  ✗ Validation failed: {result.get('reason', 'Unknown')}")
                 self.stats['validation_failed'] += 1
                 return None
-            
+
             # Prepare article data
             article_data = {
                 'title': result['title'],
@@ -201,7 +204,7 @@ class NewsScraper:
                 'sourceDomain': source_domain,
                 'author': result.get('author', 'Unknown Author')
             }
-            
+
             # Store via API
             if self._store_article(article_data):
                 self.scraped_urls.add(url)
@@ -211,28 +214,28 @@ class NewsScraper:
             else:
                 self.stats['storage_failed'] += 1
                 return None
-                
+
         except Exception as e:
             print(f"  ✗ Error: {str(e)}")
             self.stats['storage_failed'] += 1
             return None
-    
+
     def _get_category_id(self, content: str, title: str) -> int:
         """
         Get category ID based on article content and title.
-        
+
         Args:
             content: Article content
             title: Article title
-            
+
         Returns:
             Category ID (integer)
         """
         from config_loader import classify_article
-        
+
         # Get category slug
         category_slug = classify_article(content, title, self.config)
-        
+
         # Map common slugs to database IDs (you may need to adjust these)
         # In production, you'd query the database for the actual IDs
         category_mapping = {
@@ -245,16 +248,16 @@ class NewsScraper:
             'health': 7,
             'world': 8
         }
-        
+
         return category_mapping.get(category_slug, 1)  # Default to general
-    
+
     def _store_article(self, article_data: Dict) -> bool:
         """
         Store article via Next.js API.
-        
+
         Args:
             article_data: Article data to store
-            
+
         Returns:
             True if successful, False otherwise
         """
@@ -265,29 +268,29 @@ class NewsScraper:
                 headers={'Content-Type': 'application/json'},
                 timeout=30
             )
-            
+
             if response.status_code in [200, 201]:
                 return True
             else:
                 print(f"    Storage failed: HTTP {response.status_code}")
                 return False
-                
+
         except Exception as e:
             print(f"    Storage error: {str(e)}")
             return False
-    
+
     def start_scheduler(self):
         """
         Start the scheduler for periodic scraping.
         """
         interval = self.scraper_config.get('interval_hours', 1)
         print(f"Starting scheduler - scraping every {interval} hour(s)")
-        
+
         schedule.every(interval).hours.do(self.scrape_all_sources)
-        
+
         # Run once immediately
         self.scrape_all_sources()
-        
+
         # Keep running
         while True:
             schedule.run_pending()
@@ -301,10 +304,10 @@ def main():
     print("=" * 60)
     print("PH-NewsHub News Scraper Service")
     print("=" * 60)
-    
+
     # Initialize scraper
     scraper = NewsScraper('config.json')
-    
+
     # Start scheduler
     try:
         scraper.start_scheduler()

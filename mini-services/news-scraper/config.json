@@ -94,27 +94,80 @@
     "sports": {
       "name": "Sports",
       "slug": "sports",
-      "keywords": ["basketball", "pba", "nba", "football", "soccer", "volleyball", "boxing", "pacquiao", "olympics", "sports"]
+      "keywords": [
+        "basketball",
+        "pba",
+        "nba",
+        "football",
+        "soccer",
+        "volleyball",
+        "boxing",
+        "pacquiao",
+        "olympics",
+        "sports"
+      ]
     },
     "politics": {
       "name": "Politics",
       "slug": "politics",
-      "keywords": ["senator", "congress", "president", "election", "politics", "government", "policy", "legislation", "senate"]
+      "keywords": [
+        "senator",
+        "congress",
+        "president",
+        "election",
+        "politics",
+        "government",
+        "policy",
+        "legislation",
+        "senate"
+      ]
     },
     "business": {
       "name": "Business",
       "slug": "business",
-      "keywords": ["economy", "gdp", "stock", "market", "business", "company", "investment", "trade", "finance", "peso"]
+      "keywords": [
+        "economy",
+        "gdp",
+        "stock",
+        "market",
+        "business",
+        "company",
+        "investment",
+        "trade",
+        "finance",
+        "peso"
+      ]
     },
     "technology": {
       "name": "Technology",
       "slug": "technology",
-      "keywords": ["tech", "technology", "digital", "ai", "startup", "app", "software", "internet", "cyber", "innovation"]
+      "keywords": [
+        "tech",
+        "technology",
+        "digital",
+        "ai",
+        "startup",
+        "app",
+        "software",
+        "internet",
+        "cyber",
+        "innovation"
+      ]
     },
     "entertainment": {
       "name": "Entertainment",
       "slug": "entertainment",
-      "keywords": ["celebrity", "movie", "music", "concert", "showbiz", "entertainment", "actor", "actress", "film"]
+      "keywords": [
+        "celebrity",
+        "movie",
+        "music",
+        "concert",
+        "showbiz",
+        "entertainment",
+        "actor",
+        "actress",
+        "film"
+      ]
     }
   }
 }
