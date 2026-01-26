@@ -25,7 +25,7 @@ export async function POST(
   try {
     const articleId = params.id
 
-    // Fetch article
+    // Fetch article with existing summary
     const article = await db.article.findUnique({
       where: { id: articleId },
       include: {
@@ -34,7 +34,8 @@ export async function POST(
         },
         source: {
           select: { name: true }
-        }
+        },
+        summary: true
       }
     })
 
@@ -43,6 +44,21 @@ export async function POST(
         { error: 'Article not found' },
         { status: 404 }
       )
+    }
+
+    // Return cached summary if it exists
+    if (article.summary) {
+      return NextResponse.json({
+        summary: article.summary.summary,
+        keyPoints: article.summary.keyPoints,
+        readTime: article.summary.readTime,
+        generatedAt: article.summary.createdAt.toISOString(),
+        cached: true
+      }, {
+        headers: {
+          'Cache-Control': 'public, max-age=86400' // Cache for 24 hours
+        }
+      })
     }
 
     // In production, verify user is subscriber here
@@ -120,11 +136,26 @@ Please provide a concise summary that captures the essential information in a fo
       .map((line: string) => line.replace(/^[-•]\s*/, '').trim())
       .filter((line: string) => line.length > 0)
 
+    // Cache the summary in database
+    await db.articleSummary.create({
+      data: {
+        articleId: article.id,
+        summary,
+        keyPoints,
+        readTime: '1 min'
+      }
+    })
+
     return NextResponse.json({
       summary,
       keyPoints,
       readTime: '1 min',
-      generatedAt: new Date().toISOString()
+      generatedAt: new Date().toISOString(),
+      cached: false
+    }, {
+      headers: {
+        'Cache-Control': 'public, max-age=86400' // Cache for 24 hours
+      }
     })
 
   } catch (error) {
