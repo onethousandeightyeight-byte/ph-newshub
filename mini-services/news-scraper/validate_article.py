@@ -156,9 +156,15 @@ def _extract_image_url(soup: BeautifulSoup) -> Optional[str]:
 
 
 class ArticleValidator:
+    """
+    Validates news articles against quality and trust criteria.
+    Implements the "Rubbish Filter" logic.
+    """
+    
+    def __init__(self, config: Dict):
         """
         Initialize validator with configuration.
-
+        
         Args:
             config: Dictionary containing quality filter settings
         """
