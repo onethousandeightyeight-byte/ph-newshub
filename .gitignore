@@ -47,3 +47,10 @@ test
 prompt
 
 server.log
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyc
+.Python

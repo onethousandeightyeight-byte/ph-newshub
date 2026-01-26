@@ -14,6 +14,7 @@ import requests
 import json
 from typing import List, Dict, Optional
 from datetime import datetime, timedelta
+from bs4 import BeautifulSoup
 from validate_article import fetch_and_validate
 from config_loader import load_config, get_trusted_domains
 
@@ -192,16 +193,25 @@ class NewsScraper:
                 self.stats['validation_failed'] += 1
                 return None
 
+            # Get category ID
+            category_id = self._get_category_id(result['content'], result['title'])
+            
+            # Skip if no category ID could be determined
+            if not category_id:
+                print(f"  ✗ Could not determine category ID")
+                self.stats['validation_failed'] += 1
+                return None
+
             # Prepare article data
             article_data = {
                 'title': result['title'],
-                'snippet': result['content'][:200] + '...',
+                'snippet': result['content'][:200] + '...' if len(result['content']) > 200 else result['content'],
                 'contentBody': result['content'],
                 'originalUrl': url,
                 'publishedAt': result.get('published_date') or datetime.now().isoformat(),
                 'imageUrl': result.get('image_url'),
-                'categoryId': self._get_category_id(result['content'], result['title']),
-                'sourceDomain': source_domain,
+                'categoryId': category_id,
+                'sourceDomain': source_domain,  # Just the domain, API will handle it
                 'author': result.get('author', 'Unknown Author')
             }
 
@@ -220,36 +230,56 @@ class NewsScraper:
             self.stats['storage_failed'] += 1
             return None
 
-    def _get_category_id(self, content: str, title: str) -> int:
+    def _get_category_id(self, content: str, title: str) -> Optional[str]:
         """
         Get category ID based on article content and title.
+        Queries the API to get the actual category ID.
 
         Args:
             content: Article content
             title: Article title
 
         Returns:
-            Category ID (integer)
+            Category ID (string CUID) or None if not found
         """
         from config_loader import classify_article
 
         # Get category slug
         category_slug = classify_article(content, title, self.config)
 
-        # Map common slugs to database IDs (you may need to adjust these)
-        # In production, you'd query the database for the actual IDs
-        category_mapping = {
-            'general': 1,
-            'politics': 2,
-            'business': 3,
-            'sports': 4,
-            'entertainment': 5,
-            'technology': 6,
-            'health': 7,
-            'world': 8
-        }
-
-        return category_mapping.get(category_slug, 1)  # Default to general
+        # Query API to get category ID by slug
+        try:
+            response = requests.get(
+                f"{self.api_url}/categories",
+                params={'slug': category_slug},
+                timeout=10
+            )
+            
+            if response.status_code == 200:
+                categories = response.json()
+                if isinstance(categories, list) and len(categories) > 0:
+                    return categories[0].get('id')
+                elif isinstance(categories, dict):
+                    return categories.get('id')
+        except Exception as e:
+            print(f"    Warning: Could not fetch category ID: {str(e)}")
+        
+        # If API call fails, try to get a default category
+        try:
+            response = requests.get(
+                f"{self.api_url}/categories",
+                timeout=10
+            )
+            
+            if response.status_code == 200:
+                categories = response.json()
+                if isinstance(categories, list) and len(categories) > 0:
+                    # Return first category as fallback
+                    return categories[0].get('id')
+        except:
+            pass
+        
+        return None  # Will cause validation error in API
 
     def _store_article(self, article_data: Dict) -> bool:
         """
@@ -273,6 +303,11 @@ class NewsScraper:
                 return True
             else:
                 print(f"    Storage failed: HTTP {response.status_code}")
+                try:
+                    error_detail = response.json()
+                    print(f"    Error detail: {error_detail}")
+                except:
+                    print(f"    Response text: {response.text[:200]}")
                 return False
 
         except Exception as e:

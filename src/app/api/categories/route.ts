@@ -4,13 +4,39 @@ import { db } from '@/lib/db'
 /**
  * GET /api/categories
  * 
- * Returns all categories in hierarchical structure
+ * Query Parameters:
+ * - flat: Return flat list instead of hierarchical (optional, default: false)
+ * - slug: Filter by specific category slug (optional)
+ * 
+ * Returns all categories in hierarchical structure or a specific category by slug
  * Useful for building category navigation menus
+ * 
+ * Examples:
+ * - GET /api/categories - Returns hierarchical categories
+ * - GET /api/categories?flat=true - Returns flat list
+ * - GET /api/categories?slug=sports - Returns sports category
  */
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams
     const flat = searchParams.get('flat') === 'true'
+    const slug = searchParams.get('slug')
+
+    // If slug is provided, return that specific category
+    if (slug) {
+      const category = await db.category.findUnique({
+        where: { slug }
+      })
+
+      if (!category) {
+        return NextResponse.json(
+          { error: 'Category not found' },
+          { status: 404 }
+        )
+      }
+
+      return NextResponse.json(category)
+    }
 
     const categories = await db.category.findMany({
       orderBy: [
