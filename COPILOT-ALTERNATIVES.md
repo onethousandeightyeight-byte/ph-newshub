@@ -40,8 +40,10 @@ When you reach the quota:
 | Code Completions | Limited/Throttled | Unlimited & Faster |
 | Chat Messages | ~50/month | Unlimited |
 | Priority Access | No | Yes |
-| Multi-file Editing | No | Yes |
-| Advanced Models | No | Yes (GPT-4) |
+| Multi-file Editing | Limited | Enhanced |
+| Advanced Models | Standard | Advanced (GPT-4) |
+
+> **Note:** GitHub Copilot features are subject to change. Check [github.com/features/copilot](https://github.com/features/copilot) for the latest feature comparison.
 
 ### How to Upgrade
 
@@ -510,7 +512,8 @@ Reached Copilot Quota?
 - [GitHub Discussions](https://github.com/vercel/next.js/discussions)
 
 ### AI Tools Comparison
-- [AI Coding Tools Comparison 2026](https://github.com/features/copilot/plans)
+- [GitHub Copilot Plans](https://github.com/features/copilot/plans)
+- [AI Coding Assistant Comparison](https://github.com/features/copilot)
 
 ---
 
