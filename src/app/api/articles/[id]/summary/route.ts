@@ -137,9 +137,15 @@ Please provide a concise summary that captures the essential information in a fo
       .map((line: string) => line.replace(/^[-•]\s*/, '').trim())
       .filter((line: string) => line.length > 0)
 
-    // Cache the summary in database
-    await db.articleSummary.create({
-      data: {
+    // Cache the summary in database (using upsert to handle race conditions)
+    await db.articleSummary.upsert({
+      where: { articleId: article.id },
+      update: {
+        summary,
+        keyPoints,
+        readTime: '1 min'
+      },
+      create: {
         articleId: article.id,
         summary,
         keyPoints,
