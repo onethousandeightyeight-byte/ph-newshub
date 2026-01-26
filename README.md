@@ -12,14 +12,21 @@ npm install
 npm run db:generate
 npm run db:push
 
+# Seed categories (IMPORTANT!)
+npm run db:seed
+
 # Start development server
 npm run dev
 ```
 
 Visit [http://localhost:3000](http://localhost:3000) to see your application.
 
+**Need to get scraping working?** See [QUICK-SETUP.md](./QUICK-SETUP.md) for complete setup instructions.
+
 ## 📚 Documentation
 
+- **[QUICK-SETUP.md](./QUICK-SETUP.md)** - ⭐ Step-by-step guide to get scraping working
+- **[SCRAPER-TROUBLESHOOTING.md](./SCRAPER-TROUBLESHOOTING.md)** - Debugging guide for scraper issues
 - **[DEPLOYMENT-GUIDE.md](./DEPLOYMENT-GUIDE.md)** - Complete deployment instructions for Vercel, Supabase, and Render
 - **[PH-NEWSHUB-DELIVERABLES.md](./PH-NEWSHUB-DELIVERABLES.md)** - Technical architecture and implementation details
 - **[COPILOT-ALTERNATIVES.md](./COPILOT-ALTERNATIVES.md)** - GitHub Copilot quota solutions and alternative development tools
