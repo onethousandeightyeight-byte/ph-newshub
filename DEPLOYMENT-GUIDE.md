@@ -37,6 +37,8 @@ Before you start, make sure you have:
 - [ ] **Bun** installed (or npm)
 - [ ] **Code Editor** - VS Code, WebStorm, etc.
 
+> 💡 **Development Tip:** If you've reached your GitHub Copilot quota or need alternative development tools, check out our [COPILOT-ALTERNATIVES.md](./COPILOT-ALTERNATIVES.md) guide for solutions and free alternatives.
+
 ### Check Your Tools:
 
 ```bash
