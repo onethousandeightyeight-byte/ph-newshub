@@ -1,0 +1,16 @@
+{
+  "name": "ph-newshub-scraper",
+  "version": "1.0.0",
+  "description": "News scraper service for PH-NewsHub with quality control",
+  "type": "module",
+  "scripts": {
+    "dev": "bun --hot index.ts"
+  },
+  "dependencies": {
+    "express": "^4.18.2"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.17",
+    "bun-types": "latest"
+  }
+}
