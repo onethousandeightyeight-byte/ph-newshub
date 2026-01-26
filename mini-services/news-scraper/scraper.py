@@ -21,12 +21,20 @@ from validate_article import ArticleValidator
 API_URL = os.environ.get("NEXTJS_API_URL", "https://ph-newshub.vercel.app/api")
 SCRAPER_INTERVAL_HOURS = int(os.environ.get("SCRAPER_INTERVAL_HOURS", 1))
 
+# Using a realistic browser user-agent to avoid being blocked.
+HEADERS = {
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+}
+
+# Focusing on sources that are more likely to work and have good RSS feeds.
 trusted_sources = [
     {"name": "GMA News Online", "url": "https://www.gmanetwork.com/news/"},
     {"name": "ABS-CBN News", "url": "https://news.abs-cbn.com/"},
     {"name": "Rappler", "url": "https://www.rappler.com/"},
     {"name": "Inquirer.net", "url": "https://www.inquirer.net/"},
     {"name": "Philstar.com", "url": "https://www.philstar.com/"},
+    {"name": "Manila Bulletin", "url": "https://mb.com.ph/"},
+    {"name": "Philippine News Agency", "url": "https://www.pna.gov.ph/"},
 ]
 # --- End Configuration ---
 
@@ -36,10 +44,11 @@ def discover_rss_feeds(site_url: str) -> List[str]:
     print(f"  -> Discovering RSS feeds for {site_url}")
     found_feeds = []
     try:
-        response = requests.get(site_url, timeout=15)
+        # Using headers and disabling SSL verification for robustness.
+        response = requests.get(site_url, timeout=15, headers=HEADERS, verify=False)
         response.raise_for_status()
         soup = BeautifulSoup(response.text, 'html.parser')
-        
+
         # Common RSS link patterns
         rss_links = soup.find_all('a', href=True)
         for link in rss_links:
@@ -56,7 +65,7 @@ def discover_rss_feeds(site_url: str) -> List[str]:
             common_feeds = ['/rss', '/feed', '/rss.xml']
             for feed_path in common_feeds:
                 found_feeds.append(urljoin(site_url, feed_path))
-        
+
         print(f"  -> Discovered {len(found_feeds)} feeds.")
         return found_feeds
     except requests.exceptions.RequestException as e:
@@ -68,10 +77,11 @@ def fetch_articles_from_rss(feed_url: str) -> List[Dict]:
     """Fetches articles from an RSS feed."""
     articles = []
     try:
-        response = requests.get(feed_url, timeout=15)
+        # Using headers and disabling SSL verification for robustness.
+        response = requests.get(feed_url, timeout=15, headers=HEADERS, verify=False)
         response.raise_for_status()
         soup = BeautifulSoup(response.content, 'xml')
-        
+
         items = soup.find_all('item')
         for item in items:
             link = item.find('link')
@@ -79,10 +89,12 @@ def fetch_articles_from_rss(feed_url: str) -> List[Dict]:
                 articles.append({'link': link.text.strip()})
         return articles
     except requests.exceptions.RequestException as e:
-        print(f"     [ERROR] Failed to fetch or parse RSS feed {feed_url}: {e}")
+        print(
+            f"     [ERROR] Failed to fetch or parse RSS feed {feed_url}: {e}")
         return []
     except Exception as e:
-        print(f"     [ERROR] An unexpected error occurred while parsing {feed_url}: {e}")
+        print(
+            f"     [ERROR] An unexpected error occurred while parsing {feed_url}: {e}")
         return []
 
 
@@ -97,10 +109,13 @@ def scrape_and_store():
         print(f"\n[INFO] Processing source: {source['name']} ({site_url})")
 
         try:
-            categories_response = requests.get(f"{API_URL}/categories")
+            # Using headers and disabling SSL verification for robustness.
+            categories_response = requests.get(f"{API_URL}/categories", headers=HEADERS, verify=False)
             categories_response.raise_for_status()
-            categories_map = {cat['slug']: cat['id'] for cat in categories_response.json()}
-            print(f"  [SUCCESS] Fetched {len(categories_map)} categories from API.")
+            categories_map = {cat['slug']: cat['id']
+                              for cat in categories_response.json()}
+            print(
+                f"  [SUCCESS] Fetched {len(categories_map)} categories from API.")
         except requests.exceptions.RequestException as e:
             print(f"  [ERROR] Could not fetch categories from API: {e}")
             print("  [WARN] Skipping source due to category fetch failure.")
@@ -118,18 +133,22 @@ def scrape_and_store():
 
             for article_data in articles:
                 try:
-                    validated_data = validator.fetch_and_validate(article_data['link'])
-                    if validated_data:
-                        category_slug = validated_data.get('category', 'general')
+                    validated_data = validator.fetch_and_validate(
+                        article_data['link'])
+                    if validated_data and validated_data.get('valid'):
+                        category_slug = validated_data.get(
+                            'category', 'general')
                         category_id = categories_map.get(category_slug)
 
                         if not category_id:
-                            print(f"     [WARN] Category '{category_slug}' not found. Defaulting to 'general'.")
+                            print(
+                                f"     [WARN] Category '{category_slug}' not found. Defaulting to 'general'.")
                             category_id = categories_map.get('general')
-                        
+
                         if not category_id:
-                             print(f"     [ERROR] Default category 'general' not found. Cannot post article.")
-                             continue
+                            print(
+                                f"     [ERROR] Default category 'general' not found. Cannot post article.")
+                            continue
 
                         post_payload = {
                             "title": validated_data["title"],
@@ -143,17 +162,22 @@ def scrape_and_store():
                             "sourceDomain": urlparse(validated_data["originalUrl"]).netloc
                         }
 
-                        response = requests.post(f"{API_URL}/articles", json=post_payload)
+                        # Using headers and disabling SSL verification for robustness.
+                        response = requests.post(f"{API_URL}/articles", json=post_payload, headers=HEADERS, verify=False)
                         response.raise_for_status()
-                        print(f"     [SUCCESS] Stored article: {validated_data['title'][:50]}...")
+                        print(
+                            f"     [SUCCESS] Stored article: {validated_data['title'][:50]}...")
                     else:
-                        print(f"     [INFO] Article failed validation: {article_data['link']}")
+                        print(
+                            f"     [INFO] Article failed validation: '{validated_data.get('title', 'Unknown title')}' - Reason: {validated_data.get('reason', 'Unknown')}")
 
                 except requests.exceptions.RequestException as e:
-                    print(f"     [ERROR] Failed to store article {article_data.get('link', '')}: {e}")
+                    print(
+                        f"     [ERROR] Failed to store article {article_data.get('link', '')}: {e}")
                 except Exception as e:
-                    print(f"     [ERROR] Unexpected error for {article_data.get('link', '')}: {e}")
-    
+                    print(
+                        f"     [ERROR] Unexpected error for {article_data.get('link', '')}: {e}")
+
     print(f"\nScraping cycle finished at {time.ctime()}")
     print("-----------------------------------------")
 
@@ -165,7 +189,8 @@ if __name__ == "__main__":
     scrape_and_store()
     # Then schedule to run every hour
     schedule.every(SCRAPER_INTERVAL_HOURS).hours.do(scrape_and_store)
-    print(f"Scheduled to run every {SCRAPER_INTERVAL_HOURS} hour(s). Waiting...")
+    print(
+        f"Scheduled to run every {SCRAPER_INTERVAL_HOURS} hour(s). Waiting...")
 
     while True:
         schedule.run_pending()

@@ -155,6 +155,29 @@ def _extract_image_url(soup: BeautifulSoup) -> Optional[str]:
     return None
 
 
+def _determine_category(title: str, content: str) -> str:
+    """Determine article category based on keywords in title and content."""
+    text_to_search = (title + " " + content).lower()
+    
+    # Keyword-based classification
+    # This can be expanded and made more sophisticated
+    categories = {
+        'politics': ['politics', 'government', 'senate', 'congress', 'president', 'election', 'duterte', 'marcos'],
+        'business': ['business', 'economy', 'finance', 'stocks', 'market', 'trade', 'bsp', 'pse'],
+        'sports': ['sports', 'pba', 'nba', 'gilas', 'basketball', 'football', 'boxing', 'uaap', 'ncaa'],
+        'entertainment': ['entertainment', 'celebrity', 'movie', 'music', 'showbiz', 'artist'],
+        'technology': ['technology', 'tech', 'software', 'internet', 'gadget', 'crypto', 'fintech'],
+        'health': ['health', 'medical', 'doh', 'covid-19', 'virus', 'hospital', 'doctor'],
+        'world': ['world', 'international', 'foreign', 'global', 'china', 'usa', 'united states']
+    }
+    
+    for category, keywords in categories.items():
+        if any(keyword in text_to_search for keyword in keywords):
+            return category
+            
+    return 'general'
+
+
 class ArticleValidator:
     """
     Validates news articles against quality and trust criteria.
@@ -451,6 +474,7 @@ def fetch_and_validate(url: str, config: Dict) -> Dict:
         author = _extract_author(soup)
         published_date = _extract_published_date(soup)
         image_url = _extract_image_url(soup)
+        category = _determine_category(title, content)
 
         # Validate
         validator = ArticleValidator(config.get('quality_filter', {}))
@@ -463,15 +487,18 @@ def fetch_and_validate(url: str, config: Dict) -> Dict:
                 'title': title,
                 'content': content,
                 'author': author,
-                'published_date': published_date.isoformat() if published_date else None,
+                'published_date': published_date.isoformat() if published_date else datetime.now().isoformat(),
                 'image_url': image_url,
+                'category': category,
                 'word_count': validation_result['word_count'],
                 'validation': validation_result
             }
         else:
+            # Add the title to the result for better logging
+            validation_result['title'] = title
             return validation_result
-
-    except Exception as e:
+            
+    except requests.exceptions.RequestException as e:
         return {
             'valid': False,
             'reason': f'Error fetching/parsing: {str(e)}',
