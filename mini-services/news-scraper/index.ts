@@ -36,9 +36,19 @@ app.post('/start', (req, res) => {
   }
 
   try {
-    pythonProcess = spawn('python3', ['scraper.py'], {
+    // Use the '-u' flag for unbuffered output
+    pythonProcess = spawn('python3', ['-u', 'scraper.py'], {
       cwd: process.cwd(),
-      stdio: 'inherit'
+    });
+
+    // Explicitly capture and log stdout
+    pythonProcess.stdout?.on('data', (data) => {
+      console.log(`[scraper.py] ${data.toString().trim()}`);
+    });
+
+    // Explicitly capture and log stderr
+    pythonProcess.stderr?.on('data', (data) => {
+      console.error(`[scraper.py] stderr: ${data.toString().trim()}`);
     });
 
     pythonProcess.on('error', (error) => {
@@ -120,9 +130,19 @@ app.post('/_internal/start', (req, res) => {
   }
 
   try {
-    pythonProcess = spawn('python3', ['scraper.py'], {
+    // Use the '-u' flag for unbuffered output
+    pythonProcess = spawn('python3', ['-u', 'scraper.py'], {
       cwd: process.cwd(),
-      stdio: 'inherit'
+    });
+
+    // Explicitly capture and log stdout
+    pythonProcess.stdout?.on('data', (data) => {
+      console.log(`[scraper.py] ${data.toString().trim()}`);
+    });
+
+    // Explicitly capture and log stderr
+    pythonProcess.stderr?.on('data', (data) => {
+      console.error(`[scraper.py] stderr: ${data.toString().trim()}`);
     });
 
     pythonProcess.on('error', (error) => {
@@ -146,7 +166,7 @@ app.post('/_internal/start', (req, res) => {
 // Auto-start scraper
 function autoStartScraper() {
   console.log('Auto-starting Python scraper...');
-  
+
   // Trigger auto-start after a short delay
   setTimeout(() => {
     fetch(`http://127.0.0.1:${PORT}/_internal/start`, {
