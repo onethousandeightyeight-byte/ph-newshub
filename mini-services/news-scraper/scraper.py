@@ -352,5 +352,12 @@ def main():
         print(f"\n\nError: {str(e)}")
 
 
-if __name__ == '__main__':
-    main()
+if __name__ == "__main__":
+    # This comment is here to force a new deployment commit.
+    print("Starting PH-NewsHub Scraper...")
+    # Run once immediately on start
+    try:
+        main()
+    except Exception as e:
+        print(f"Error in main execution: {str(e)}")
+        time.sleep(10)  # Wait before exiting
