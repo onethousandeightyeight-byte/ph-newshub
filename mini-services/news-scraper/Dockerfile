@@ -18,10 +18,10 @@ COPY . .
 
 # Install Bun
 RUN curl -fsSL https://bun.sh/install | bash
-ENV PATH="/root/.bun/bin:${PATH}"
+ENV PATH="/root/.bun/bin:$PATH"
 
 # Install Node dependencies
-RUN bun install
+RUN /root/.bun/bin/bun install
 
 # Expose port
 EXPOSE 3001
@@ -35,4 +35,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD curl -f http://localhost:3001/health || exit 1
 
 # Run application
-CMD ["bun", "run", "dev"]
+CMD ["/root/.bun/bin/bun", "--hot", "index.ts"]
