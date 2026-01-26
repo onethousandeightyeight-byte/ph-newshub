@@ -20,9 +20,10 @@ import ZAI from 'z-ai-web-dev-sdk'
  */
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
+    const params = await context.params
     const articleId = params.id
 
     // Fetch article with existing summary
