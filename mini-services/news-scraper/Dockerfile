@@ -1,5 +1,10 @@
 FROM python:3.11-slim
 
+# Install system dependencies first
+RUN apt-get update && apt-get install -y \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
 # Set working directory
 WORKDIR /app
 
@@ -16,11 +21,6 @@ ENV PATH="/root/.bun/bin:${PATH}"
 
 # Install Node dependencies
 RUN bun install
-
-# Install system dependencies
-RUN apt-get update && apt-get install -y \
-    curl \
-    && rm -rf /var/lib/apt/lists/*
 
 # Expose port
 EXPOSE 3001
