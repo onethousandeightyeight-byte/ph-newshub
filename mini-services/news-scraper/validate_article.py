@@ -158,7 +158,7 @@ def _extract_image_url(soup: BeautifulSoup) -> Optional[str]:
 def _determine_category(title: str, content: str) -> str:
     """Determine article category based on keywords in title and content."""
     text_to_search = (title + " " + content).lower()
-    
+
     # Keyword-based classification
     # This can be expanded and made more sophisticated
     categories = {
@@ -170,11 +170,11 @@ def _determine_category(title: str, content: str) -> str:
         'health': ['health', 'medical', 'doh', 'covid-19', 'virus', 'hospital', 'doctor'],
         'world': ['world', 'international', 'foreign', 'global', 'china', 'usa', 'united states']
     }
-    
+
     for category, keywords in categories.items():
         if any(keyword in text_to_search for keyword in keywords):
             return category
-            
+
     return 'general'
 
 
@@ -497,7 +497,7 @@ def fetch_and_validate(url: str, config: Dict) -> Dict:
             # Add the title to the result for better logging
             validation_result['title'] = title
             return validation_result
-            
+
     except requests.exceptions.RequestException as e:
         return {
             'valid': False,

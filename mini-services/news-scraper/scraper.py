@@ -45,7 +45,8 @@ def discover_rss_feeds(site_url: str) -> List[str]:
     found_feeds = []
     try:
         # Using headers and disabling SSL verification for robustness.
-        response = requests.get(site_url, timeout=15, headers=HEADERS, verify=False)
+        response = requests.get(site_url, timeout=15,
+                                headers=HEADERS, verify=False)
         response.raise_for_status()
         soup = BeautifulSoup(response.text, 'html.parser')
 
@@ -78,7 +79,8 @@ def fetch_articles_from_rss(feed_url: str) -> List[Dict]:
     articles = []
     try:
         # Using headers and disabling SSL verification for robustness.
-        response = requests.get(feed_url, timeout=15, headers=HEADERS, verify=False)
+        response = requests.get(feed_url, timeout=15,
+                                headers=HEADERS, verify=False)
         response.raise_for_status()
         soup = BeautifulSoup(response.content, 'xml')
 
@@ -110,7 +112,8 @@ def scrape_and_store():
 
         try:
             # Using headers and disabling SSL verification for robustness.
-            categories_response = requests.get(f"{API_URL}/categories", headers=HEADERS, verify=False)
+            categories_response = requests.get(
+                f"{API_URL}/categories", headers=HEADERS, verify=False)
             categories_response.raise_for_status()
             categories_map = {cat['slug']: cat['id']
                               for cat in categories_response.json()}
@@ -163,7 +166,8 @@ def scrape_and_store():
                         }
 
                         # Using headers and disabling SSL verification for robustness.
-                        response = requests.post(f"{API_URL}/articles", json=post_payload, headers=HEADERS, verify=False)
+                        response = requests.post(
+                            f"{API_URL}/articles", json=post_payload, headers=HEADERS, verify=False)
                         response.raise_for_status()
                         print(
                             f"     [SUCCESS] Stored article: {validated_data['title'][:50]}...")
