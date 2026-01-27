@@ -222,8 +222,11 @@ def scrape_and_store():
                         else:
                             print(
                                 f"     [ERROR] Failed to store article. HTTP {response.status_code}")
-                            print(
-                                f"     [DEBUG] Response body: {response.text[:5000]}")
+                            resp_text = response.text
+                            # Split log to avoid truncation of the important error message at the end
+                            print(f"     [DEBUG] Response body START: {resp_text[:500]}")
+                            if len(resp_text) > 500:
+                                print(f"     [DEBUG] Response body END: {resp_text[-2000:]}")
                     else:
                         reason = validated_data.get('reason', 'Unknown') if validated_data else 'Validation returned None'
                         title = validated_data.get('title', 'Unknown title') if validated_data else 'Unknown'
