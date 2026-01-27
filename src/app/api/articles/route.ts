@@ -172,9 +172,21 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    // Create article
-    const article = await db.article.create({
-      data: {
+    // Create or update article (upsert handles duplicate originalUrl)
+    const article = await db.article.upsert({
+      where: { originalUrl },
+      update: {
+        title,
+        snippet,
+        contentBody,
+        publishedAt: publishedAt ? new Date(publishedAt) : new Date(),
+        imageUrl,
+        author,
+        wordCount,
+        categoryId,
+        sourceId: source.id
+      },
+      create: {
         title,
         snippet,
         contentBody,
