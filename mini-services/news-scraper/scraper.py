@@ -48,7 +48,7 @@ def discover_rss_feeds(site_url: str) -> List[str]:
     try:
         # Using headers and disabling SSL verification for robustness.
         response = requests.get(site_url, timeout=15,
-                                headers=HEADERS, verify=False)
+                                headers=HEADERS, verify=True)
         response.raise_for_status()
         soup = BeautifulSoup(response.text, 'html.parser')
 
@@ -102,9 +102,9 @@ def fetch_articles_from_rss(feed_url: str) -> List[Dict]:
     """Fetches articles from an RSS feed."""
     articles = []
     try:
-        # Using headers and disabling SSL verification for robustness.
+        # Using headers with SSL verification enabled.
         response = requests.get(feed_url, timeout=15,
-                                headers=HEADERS, verify=False)
+                                headers=HEADERS, verify=True)
         response.raise_for_status()
         soup = BeautifulSoup(response.content, 'xml')
 
@@ -146,7 +146,7 @@ def scrape_and_store():
         try:
             # Using headers and disabling SSL verification for robustness.
             categories_response = requests.get(
-                f"{API_URL}/categories", headers=HEADERS, verify=False)
+                f"{API_URL}/categories", headers=HEADERS, verify=True)
             categories_response.raise_for_status()
             categories_map = {cat['slug']: cat['id']
                               for cat in categories_response.json()}
@@ -210,8 +210,10 @@ def scrape_and_store():
                             continue
 
                         # Using headers and disabling SSL verification for robustness.
+                        # Log payload for debugging
+                        print(f"     [DEBUG] Posting article: {post_payload.get('title', 'NO TITLE')[:50]}...")
                         response = requests.post(
-                            f"{API_URL}/articles", json=post_payload, headers=HEADERS, verify=False)
+                            f"{API_URL}/articles", json=post_payload, headers=HEADERS, verify=True)
                         
                         if response.status_code == 201:
                             print(
