@@ -215,9 +215,10 @@ def scrape_and_store():
                         response = requests.post(
                             f"{API_URL}/articles", json=post_payload, headers=HEADERS, verify=True)
                         
-                        if response.status_code == 201:
+                        if response.status_code in [200, 201]:
+                            action = "Updated" if response.status_code == 200 else "Stored"
                             print(
-                                f"     [SUCCESS] Stored article: {validated_data['title'][:50]}...")
+                                f"     [SUCCESS] {action} article: {validated_data['title'][:50]}...")
                         else:
                             print(
                                 f"     [ERROR] Failed to store article. HTTP {response.status_code}")
