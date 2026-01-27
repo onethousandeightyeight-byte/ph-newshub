@@ -62,7 +62,7 @@ def discover_rss_feeds(site_url: str) -> List[str]:
     try:
         # Using headers and disabling SSL verification for robustness.
         response = requests.get(site_url, timeout=15,
-                                headers=HEADERS, verify=True)
+                                headers=get_random_headers(), verify=True)
         response.raise_for_status()
         soup = BeautifulSoup(response.text, 'html.parser')
 
@@ -118,7 +118,7 @@ def fetch_articles_from_rss(feed_url: str) -> List[Dict]:
     try:
         # Using headers with SSL verification enabled.
         response = requests.get(feed_url, timeout=15,
-                                headers=HEADERS, verify=True)
+                                headers=get_random_headers(), verify=True)
         response.raise_for_status()
         soup = BeautifulSoup(response.content, 'xml')
 
