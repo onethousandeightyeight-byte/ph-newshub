@@ -7,20 +7,28 @@ from typing import List, Dict
 from pathlib import Path
 
 
-def load_config(config_path: str = 'config.json') -> Dict:
+def load_config(config_path: str = None) -> Dict:
     """
     Load configuration from JSON file.
     
     Args:
-        config_path: Path to config file
+        config_path: Path to config file (default: config.json in same dir)
         
     Returns:
         Configuration dictionary
     """
+    if config_path is None:
+        # Default to config.json in the same directory as this script
+        config_path = Path(__file__).parent / 'config.json'
+    
     config_file = Path(config_path)
     
     if not config_file.exists():
-        raise FileNotFoundError(f"Config file not found: {config_path}")
+        # Fallback: try relative to CWD if absolute failed and wasn't explicit
+        if Path('config.json').exists():
+             config_file = Path('config.json')
+        else:
+             raise FileNotFoundError(f"Config file not found: {config_path}")
     
     with open(config_file, 'r') as f:
         return json.load(f)
