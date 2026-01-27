@@ -7,7 +7,7 @@ RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 
 # Copy all dependency files first for better caching
-COPY package.json bun.lockb requirements.txt ./
+COPY package.json bun.lock requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Install Bun
