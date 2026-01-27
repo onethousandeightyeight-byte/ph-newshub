@@ -21,10 +21,24 @@ from validate_article import fetch_and_validate
 API_URL = os.environ.get("NEXTJS_API_URL", "https://ph-newshub.vercel.app/api")
 SCRAPER_INTERVAL_HOURS = int(os.environ.get("SCRAPER_INTERVAL_HOURS", 1))
 
-# Using a realistic browser user-agent to avoid being blocked.
-HEADERS = {
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-}
+import random
+
+# List of common user agents to rotate and avoid blocking
+USER_AGENTS = [
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:121.0) Gecko/20100101 Firefox/121.0',
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.2 Safari/605.1.15',
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Edge/120.0.0.0',
+    'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+]
+
+def get_random_headers():
+    return {
+        'User-Agent': random.choice(USER_AGENTS),
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.9',
+    }
 
 # Focusing on sources that are more likely to work and have good RSS feeds.
 trusted_sources = [
@@ -146,12 +160,19 @@ def scrape_and_store():
         try:
             # Using headers and disabling SSL verification for robustness.
             categories_response = requests.get(
-                f"{API_URL}/categories", headers=HEADERS, verify=True)
+                f"{API_URL}/categories", headers=get_random_headers(), verify=True)
             categories_response.raise_for_status()
             categories_map = {cat['slug']: cat['id']
                               for cat in categories_response.json()}
             print(
                 f"  [SUCCESS] Fetched {len(categories_map)} categories from API.")
+        except requests.exceptions.HTTPError as e:
+            if e.response.status_code == 403:
+                print(f"  [ERROR] API 403 Forbidden (Vercel WAF blocked). Sleeping 60s to cool down...")
+                time.sleep(60)
+            print(f"  [ERROR] Could not fetch categories from API: {e}")
+            print("  [WARN] Skipping source due to category fetch failure.")
+            continue
         except requests.exceptions.RequestException as e:
             print(f"  [ERROR] Could not fetch categories from API: {e}")
             print("  [WARN] Skipping source due to category fetch failure.")
@@ -213,7 +234,7 @@ def scrape_and_store():
                         # Log payload for debugging
                         print(f"     [DEBUG] Posting article: {post_payload.get('title', 'NO TITLE')[:50]}...")
                         response = requests.post(
-                            f"{API_URL}/articles", json=post_payload, headers=HEADERS, verify=True)
+                            f"{API_URL}/articles", json=post_payload, headers=get_random_headers(), verify=True)
                         
                         if response.status_code in [200, 201]:
                             action = "Updated" if response.status_code == 200 else "Stored"
@@ -227,6 +248,14 @@ def scrape_and_store():
                             print(f"     [DEBUG] Response body START: {resp_text[:500]}")
                             if len(resp_text) > 500:
                                 print(f"     [DEBUG] Response body END: {resp_text[-2000:]}")
+                            
+                            # Backoff on 403
+                            if response.status_code == 403:
+                                print(f"     [WARN] API 403 Forbidden on POST. Sleeping 60s to cool down...")
+                                time.sleep(60)
+                        
+                        # Add delay to avoid rate limiting
+                        time.sleep(2)
                     else:
                         reason = validated_data.get('reason', 'Unknown') if validated_data else 'Validation returned None'
                         title = validated_data.get('title', 'Unknown title') if validated_data else 'Unknown'
