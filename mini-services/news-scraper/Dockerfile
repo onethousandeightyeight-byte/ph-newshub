@@ -1,7 +1,7 @@
 FROM python:3.11-slim
 
 # Install curl, used for installing Bun
-RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y curl unzip && rm -rf /var/lib/apt/lists/*
 
 # Set working directory
 WORKDIR /app
