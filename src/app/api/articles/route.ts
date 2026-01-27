@@ -137,6 +137,34 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Validate and resolve categoryId
+    let validCategoryId = categoryId
+    if (categoryId) {
+      const categoryExists = await db.category.findUnique({
+        where: { id: categoryId }
+      })
+      if (!categoryExists) {
+        // Try to find 'general' category as fallback
+        const generalCategory = await db.category.findUnique({
+          where: { slug: 'general' }
+        })
+        validCategoryId = generalCategory?.id || null
+      }
+    } else {
+      // No categoryId provided, use 'general'
+      const generalCategory = await db.category.findUnique({
+        where: { slug: 'general' }
+      })
+      validCategoryId = generalCategory?.id || null
+    }
+
+    if (!validCategoryId) {
+      return NextResponse.json(
+        { error: 'Category not found and no default category available' },
+        { status: 400 }
+      )
+    }
+
     // Calculate word count
     const wordCount = contentBody.split(/\s+/).length
 
@@ -183,7 +211,7 @@ export async function POST(request: NextRequest) {
         imageUrl,
         author,
         wordCount,
-        categoryId,
+        categoryId: validCategoryId,
         sourceId: source.id
       },
       create: {
@@ -195,7 +223,7 @@ export async function POST(request: NextRequest) {
         imageUrl,
         author,
         wordCount,
-        categoryId,
+        categoryId: validCategoryId,
         sourceId: source.id
       },
       include: {
