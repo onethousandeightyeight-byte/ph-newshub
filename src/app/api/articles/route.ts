@@ -52,7 +52,7 @@ export async function GET(request: NextRequest) {
       }
     })
 
-    // Transform articles to feed format
+    // Transform articles to nested format matching Frontend APIArticle interface
     const formattedArticles = articles.map(article => ({
       id: article.id,
       title: article.title,
@@ -61,14 +61,18 @@ export async function GET(request: NextRequest) {
       wordCount: article.wordCount,
       imageUrl: article.imageUrl,
       publishedAt: article.publishedAt,
-      sourceName: article.source.name,
-      categoryName: article.category.name,
-      categorySlug: article.category.slug,
-      originalUrl: article.originalUrl
+      originalUrl: article.originalUrl,
+      source: {
+        name: article.source.name,
+        domain: article.source.domainUrl
+      },
+      category: {
+        name: article.category.name,
+        slug: article.category.slug
+      }
     }))
 
     // Inject ads if requested
-    let response
     if (includeAds) {
       // Fetch active ads
       const ads = await db.adPlacement.findMany({
@@ -84,20 +88,15 @@ export async function GET(request: NextRequest) {
       }))
 
       const feed = injectAds(formattedArticles, formattedAds, DEFAULT_AD_CONFIG)
-      response = {
+      return NextResponse.json({
         feed,
         total: await db.article.count({ where }),
         hasMore: formattedArticles.length === limit
-      }
+      })
     } else {
-      response = {
-        feed: formattedArticles.map(article => ({ type: 'article' as const, data: article })),
-        total: await db.article.count({ where }),
-        hasMore: formattedArticles.length === limit
-      }
+      // Return raw array for direct consumption (e.g. by page.tsx with client-side processing)
+      return NextResponse.json(formattedArticles)
     }
-
-    return NextResponse.json(response)
   } catch (error) {
     console.error('Error fetching articles:', error)
     return NextResponse.json(

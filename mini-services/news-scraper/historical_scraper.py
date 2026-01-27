@@ -133,8 +133,13 @@ def scrape_history():
                             continue # Skip invalid
 
                         # Prepare Payload
+<<<<<<< HEAD
                         category_slug = validated_data.get('category', 'general')
                         category_id = categories_map.get(category_slug, categories_map.get('general'))
+=======
+                        category_slug = validated_data.get('category', 'world-current-affairs')
+                        category_id = categories_map.get(category_slug, categories_map.get('world-current-affairs'))
+>>>>>>> final-fix
 
                         post_payload = {
                             "title": validated_data["title"],
