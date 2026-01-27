@@ -151,36 +151,54 @@ def scrape_and_store():
                         if not category_id:
                             print(
                                 f"     [ERROR] Default category 'general' not found. Cannot post article.")
+                            print(
+                                f"     [DEBUG] Available categories: {list(categories_map.keys())}")
                             continue
 
-                        post_payload = {
-                            "title": validated_data["title"],
-                            "snippet": validated_data["snippet"],
-                            "contentBody": validated_data["contentBody"],
-                            "originalUrl": validated_data["originalUrl"],
-                            "publishedAt": validated_data["publishedAt"],
-                            "imageUrl": validated_data.get("imageUrl"),
-                            "author": validated_data.get("author"),
-                            "categoryId": category_id,
-                            "sourceDomain": urlparse(validated_data["originalUrl"]).netloc
-                        }
+                        # Build payload with proper error handling for missing keys
+                        try:
+                            post_payload = {
+                                "title": validated_data["title"],
+                                "snippet": validated_data["snippet"],
+                                "contentBody": validated_data["contentBody"],
+                                "originalUrl": validated_data["originalUrl"],
+                                "publishedAt": validated_data["publishedAt"],
+                                "imageUrl": validated_data.get("imageUrl"),
+                                "author": validated_data.get("author"),
+                                "categoryId": category_id,
+                                "sourceDomain": urlparse(validated_data["originalUrl"]).netloc
+                            }
+                        except KeyError as ke:
+                            print(
+                                f"     [ERROR] Missing key in validated_data: {ke}")
+                            print(
+                                f"     [DEBUG] Available keys: {list(validated_data.keys())}")
+                            continue
 
                         # Using headers and disabling SSL verification for robustness.
                         response = requests.post(
                             f"{API_URL}/articles", json=post_payload, headers=HEADERS, verify=False)
-                        response.raise_for_status()
-                        print(
-                            f"     [SUCCESS] Stored article: {validated_data['title'][:50]}...")
+                        
+                        if response.status_code == 201:
+                            print(
+                                f"     [SUCCESS] Stored article: {validated_data['title'][:50]}...")
+                        else:
+                            print(
+                                f"     [ERROR] Failed to store article. HTTP {response.status_code}")
+                            print(
+                                f"     [DEBUG] Response body: {response.text[:500]}")
                     else:
+                        reason = validated_data.get('reason', 'Unknown') if validated_data else 'Validation returned None'
+                        title = validated_data.get('title', 'Unknown title') if validated_data else 'Unknown'
                         print(
-                            f"     [INFO] Article failed validation: '{validated_data.get('title', 'Unknown title')}' - Reason: {validated_data.get('reason', 'Unknown')}")
+                            f"     [INFO] Article failed validation: '{title}' - Reason: {reason}")
 
                 except requests.exceptions.RequestException as e:
                     print(
-                        f"     [ERROR] Failed to store article {article_data.get('link', '')}: {e}")
+                        f"     [ERROR] Network error for {article_data.get('link', '')}: {e}")
                 except Exception as e:
                     print(
-                        f"     [ERROR] Unexpected error for {article_data.get('link', '')}: {e}")
+                        f"     [ERROR] Unexpected error for {article_data.get('link', '')}: {type(e).__name__}: {e}")
 
     print(f"\nScraping cycle finished at {time.ctime()}")
     print("-----------------------------------------")

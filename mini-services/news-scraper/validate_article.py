@@ -481,14 +481,18 @@ def fetch_and_validate(url: str, config: Dict) -> Dict:
         validation_result = validator.validate_article(content, url, title)
 
         if validation_result['valid']:
+            # Generate snippet from content (first 300 characters, ending at word boundary)
+            snippet = content[:300].rsplit(' ', 1)[0] + '...' if len(content) > 300 else content
+            
             return {
                 'valid': True,
-                'url': url,
+                'originalUrl': url,  # Changed from 'url' to match scraper.py
                 'title': title,
-                'content': content,
+                'snippet': snippet,  # Added snippet field for scraper.py
+                'contentBody': content,  # Changed from 'content' to match scraper.py
                 'author': author,
-                'published_date': published_date.isoformat() if published_date else datetime.now().isoformat(),
-                'image_url': image_url,
+                'publishedAt': published_date.isoformat() if published_date else datetime.now().isoformat(),  # Changed from 'published_date'
+                'imageUrl': image_url,  # Changed from 'image_url' to match scraper.py
                 'category': category,
                 'word_count': validation_result['word_count'],
                 'validation': validation_result
