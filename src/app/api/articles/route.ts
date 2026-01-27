@@ -141,15 +141,32 @@ export async function POST(request: NextRequest) {
     const wordCount = contentBody.split(/\s+/).length
 
     // Find or create source
+    // sourceDomain might be just a hostname (e.g., "www.rappler.com") or a full URL
+    let normalizedDomain = sourceDomain
+    let sourceName = sourceDomain
+
+    // If it doesn't have a protocol, add https://
+    if (sourceDomain && !sourceDomain.startsWith('http')) {
+      normalizedDomain = `https://${sourceDomain}`
+    }
+
+    // Try to extract hostname for the name
+    try {
+      sourceName = new URL(normalizedDomain).hostname
+    } catch {
+      // If URL parsing fails, use the domain as-is
+      sourceName = sourceDomain || 'Unknown Source'
+    }
+
     let source = await db.source.findUnique({
-      where: { domainUrl: sourceDomain }
+      where: { domainUrl: sourceDomain || normalizedDomain }
     })
 
     if (!source) {
       source = await db.source.create({
         data: {
-          domainUrl: sourceDomain,
-          name: new URL(sourceDomain).hostname,
+          domainUrl: sourceDomain || normalizedDomain,
+          name: sourceName,
           isTrusted: false
         }
       })
