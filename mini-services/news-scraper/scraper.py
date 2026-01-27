@@ -43,6 +43,8 @@ def discover_rss_feeds(site_url: str) -> List[str]:
     """Attempts to discover RSS feed URLs from a website's homepage."""
     print(f"  -> Discovering RSS feeds for {site_url}")
     found_feeds = []
+    site_domain = urlparse(site_url).netloc
+    
     try:
         # Using headers and disabling SSL verification for robustness.
         response = requests.get(site_url, timeout=15,
@@ -50,20 +52,42 @@ def discover_rss_feeds(site_url: str) -> List[str]:
         response.raise_for_status()
         soup = BeautifulSoup(response.text, 'html.parser')
 
-        # Common RSS link patterns
-        rss_links = soup.find_all('a', href=True)
-        for link in rss_links:
-            href = link['href'].lower()
-            if 'rss' in href or 'feed' in href or '.xml' in href:
-                full_url = urljoin(site_url, link['href'])
+        # Look for proper RSS link tags in head (most reliable)
+        rss_link_tags = soup.find_all('link', type=['application/rss+xml', 'application/atom+xml'])
+        for link in rss_link_tags:
+            href = link.get('href')
+            if href:
+                full_url = urljoin(site_url, href)
                 if full_url not in found_feeds:
                     found_feeds.append(full_url)
-                    print(f"     [DISCOVERY] Found potential feed: {full_url}")
+                    print(f"     [DISCOVERY] Found RSS link tag: {full_url}")
+
+        # If no RSS link tags found, look for anchor links but be more restrictive
+        if not found_feeds:
+            rss_links = soup.find_all('a', href=True)
+            for link in rss_links:
+                href = link['href']
+                href_lower = href.lower()
+                full_url = urljoin(site_url, href)
+                link_domain = urlparse(full_url).netloc
+                
+                # Only accept if:
+                # 1. Contains 'rss' or ends with '.xml'
+                # 2. Same domain as the source site (exclude facebook, twitter, etc.)
+                # 3. Does NOT contain 'facebook', 'twitter', 'dialog', 'share'
+                is_rss_pattern = ('rss' in href_lower or href_lower.endswith('.xml'))
+                is_same_domain = (site_domain in link_domain)
+                is_not_social = not any(x in href_lower for x in ['facebook', 'twitter', 'dialog', 'share'])
+                
+                if is_rss_pattern and is_same_domain and is_not_social:
+                    if full_url not in found_feeds:
+                        found_feeds.append(full_url)
+                        print(f"     [DISCOVERY] Found potential feed: {full_url}")
 
         # Fallback to common feed URLs if none are found
         if not found_feeds:
             print("     [DISCOVERY] No RSS links found, trying common paths...")
-            common_feeds = ['/rss', '/feed', '/rss.xml']
+            common_feeds = ['/rss', '/feed', '/rss.xml', '/feeds/posts/default']
             for feed_path in common_feeds:
                 found_feeds.append(urljoin(site_url, feed_path))
 
