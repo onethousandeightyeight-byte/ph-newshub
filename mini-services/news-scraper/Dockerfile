@@ -1,31 +1,31 @@
 FROM python:3.11-slim
 
-# Install curl, used for installing Bun
+# Install dependencies for Bun installation
 RUN apt-get update && apt-get install -y curl unzip && rm -rf /var/lib/apt/lists/*
 
 # Set working directory
 WORKDIR /app
 
-# Copy all dependency files first for better caching
-COPY package.json bun.lock requirements.txt ./
+# Copy Python requirements first for better caching
+COPY requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Install Bun
-RUN curl -fsSL https://bun.sh/install | bash
-ENV PATH="/root/.bun/bin:$PATH"
+# Install Bun globally (to /usr/local/bin so it's available to all users)
+RUN curl -fsSL https://bun.sh/install | bash && \
+    mv /root/.bun/bin/bun /usr/local/bin/bun && \
+    chmod +x /usr/local/bin/bun
 
-# Install Node.js dependencies
-RUN bun install --frozen-lockfile
+# Copy package files for Node.js dependencies
+COPY package.json bun.lock ./
+
+# Install Node.js dependencies (before switching to non-root user)
+RUN bun install
 
 # Copy the rest of the application files
 COPY . .
 
-# Create a non-root user and switch to it
-RUN useradd -m -u 1000 appuser
-USER appuser
-
-# Expose the port the server will listen on
+# Expose the port Render will use
 EXPOSE 10000
 
-# The command to start the web server
+# Start the web server which launches the Python scraper
 CMD ["bun", "run", "index.ts"]

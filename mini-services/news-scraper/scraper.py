@@ -15,7 +15,7 @@ import os
 from typing import List, Dict
 from bs4 import BeautifulSoup
 from urllib.parse import urljoin, urlparse
-from validate_article import ArticleValidator
+from validate_article import fetch_and_validate
 
 # --- Configuration ---
 API_URL = os.environ.get("NEXTJS_API_URL", "https://ph-newshub.vercel.app/api")
@@ -104,7 +104,16 @@ def scrape_and_store():
     """Main function to scrape articles and store them via the API."""
     print("-----------------------------------------")
     print(f"Starting news scraping cycle at {time.ctime()}")
-    validator = ArticleValidator(API_URL)
+    
+    # Load config for validation settings
+    import json
+    try:
+        with open('config.json', 'r') as f:
+            config = json.load(f)
+        print("[SUCCESS] Loaded config.json for validation settings.")
+    except FileNotFoundError:
+        print("[WARN] config.json not found, using default validation settings.")
+        config = {}
 
     for source in trusted_sources:
         site_url = source["url"]
@@ -136,8 +145,9 @@ def scrape_and_store():
 
             for article_data in articles:
                 try:
-                    validated_data = validator.fetch_and_validate(
-                        article_data['link'])
+                    # Use the standalone fetch_and_validate function
+                    validated_data = fetch_and_validate(
+                        article_data['link'], config)
                     if validated_data and validated_data.get('valid'):
                         category_slug = validated_data.get(
                             'category', 'general')
