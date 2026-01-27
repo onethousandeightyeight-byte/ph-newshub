@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
@@ -354,89 +354,23 @@ const TAXONOMY: Category[] = [
   }
 ]
 
-// Mock articles for demonstration
-const MOCK_ARTICLES = Array.from({ length: 50 }, (_, i) => {
-  const categories = [
-    'Sports', 'Basketball', 'PBA', 'NBA', 'UAAP', 'Football', 'Azkals', 'Boxing', 'Pacquiao', 'Volleyball', 'PVL',
-    'Politics & Government', 'National Government', 'Senate', 'House of Representatives', 'LGUs', 'Elections',
-    'Business & Economy', 'PSEi', 'Banks', 'Real Estate', 'Startups & Tech', 'Exports',
-    'Technology', 'AI & Innovation', 'Telecommunications', 'E-commerce', 'Gaming', 'Mobile Games', 'Esports',
-    'Entertainment', 'Movies & TV', 'Local Cinema', 'OPM', 'Concerts', 'Celebrities', 'Arts & Culture',
-    'News & Current Events', 'Weather', 'Typhoons', 'Crime & Justice', 'Health', 'DepEd',
-    'Lifestyle', 'Food & Dining', 'Travel', 'Automotive', 'Fashion & Beauty'
-  ]
-  
-  const selectedCategory = categories[i % categories.length]
-  
-  return {
-    id: `article-${i + 1}`,
-    title: [
-      'PBA Finals: Ginebra Extends Series Lead with Thrilling Overtime Victory',
-      'Philippines GDP Growth Exceeds Expectations at 6.5% in Q3',
-      'New Tech Hub Launches in Cebu to Boost Digital Economy',
-      'Senator Proposes Bill for Enhanced Education Funding',
-      'UAAP Season 87: Ateneo and La Salle Set for Epic Finals Showdown',
-      'Philippine Tourism Rebounds with Record-Breaking Visitor Arrivals',
-      'Local Startup Raises $10M in Series A Funding Round',
-      'Weather Update: Typhoon Signal Raised in Bicol Region',
-      'Manny Pacquiao Announces Return to Boxing Ring',
-      'Metro Manila Traffic Improvements Show Promise',
-      'New Renewable Energy Projects Approved for Luzon Grid',
-      'Philippine Cinema Wins International Film Festival Awards',
-      'Health Department Launches Nationwide Vaccination Campaign',
-      'Real Estate Market Shows Strong Recovery in Key Cities',
-      'Education Sector Prepares for K-12 Curriculum Review',
-      'Shopee Philippines Achieves Record Sales in 11.11 Campaign',
-      'OPM Artists Dominate Spotify Charts with New Releases',
-      'PSEi Reaches All-Time High Amid Bull Run',
-      'Azkals qualify for AFC Asian Cup Semifinals',
-      'MMDA Implements New Traffic Scheme Along EDSA',
-      'Local Fashion Brand Launches Sustainable Clothing Line',
-      'Tech Giant Opens Innovation Center in Manila',
-      'Restaurant Scene Explodes with New Dining Concepts',
-      'Electric Vehicle Adoption Accelerates in Metro Manila',
-      'Streaming Service Exclusives Drive Philippine Cinema Growth',
-      'Startup Ecosystem Gains Momentum with New Incubators',
-      'Digital Banking Transforms Philippine Finance Sector',
-      'Tourism Department Targets 10M Annual Visitors',
-      'Concert Tours Boost Local Entertainment Economy',
-      'Virtual Reality Gaming Takes Center Stage',
-      'Telecom Companies Race to Expand 5G Coverage',
-      'E-commerce Leaders Forge New Partnerships',
-      'Investment Flows Into Philippine Tech Startups',
-      'Healthcare Innovation Hub Launches in Davao',
-      'Cultural District Revitalization Project Approved',
-      'Agricultural Sector Embraces Smart Farming',
-      'Maritime Industry Receives Major Fleet Upgrade',
-      'Education Technology Platforms Gain Traction',
-      'Manufacturing Sector Posts Strong Growth',
-      'Renewable Energy Investments Surge to Record Levels',
-      'Infrastructure Projects Accelerate Nationwide',
-      'Digital Nomad Visa Applications Spike',
-      'Philippine Art Scene Goes Global',
-      'Food Industry Embraces Farm-to-Table Movement',
-      'Sports Tourism Drives Regional Development',
-      'Financial Literacy Campaign Launches Nationwide',
-      'Cybersecurity Concerns Rise Amid Digital Shift',
-      'Philippine Chefs Win International Culinary Awards',
-      'Automotive Sector Transitions to Hybrid Models',
-      'Real Estate Developers Focus on Green Buildings',
-      'Philippine Startups Expand to Southeast Asia',
-      'Mobile Gaming Industry Reaches $1B Revenue',
-      'Traditional Crafts Meet Modern Design',
-      'Sustainable Tourism Initiative Launched',
-      'Philippine Musicians Collaborate with International Artists',
-      'Tech Conferences Put Manila on Global Map',
-      'Health Tech Startups Revolutionize Patient Care'
-    ][i % 50],
-    snippet: 'Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.',
-    imageUrl: i % 4 === 0 ? `https://images.unsplash.com/photo-1504711434969-e33886168f5c?w=600&h=400&fit=crop` : undefined,
-    publishedAt: new Date(Date.now() - i * 7200000).toISOString(),
-    sourceName: ['Philippine Daily Inquirer', 'PhilStar', 'Rappler', 'ABS-CBN News', 'CNN Philippines', 'GMA News', 'Manila Bulletin', 'BusinessWorld'][i % 8],
-    categoryName: selectedCategory,
-    originalUrl: `https://example.com/article-${i + 1}`
+// Interface matching the API response
+interface APIArticle {
+  id: string
+  title: string
+  snippet: string
+  imageUrl: string | null
+  publishedAt: string
+  originalUrl: string
+  source: {
+    name: string
+    domain: string
   }
-})
+  category: {
+    name: string
+    slug: string
+  }
+}
 
 // Mock ads
 const MOCK_ADS: AdData[] = Array.from({ length: 4 }, (_, i) => createMockAd(i))
@@ -446,27 +380,46 @@ export default function Home() {
   const [searchQuery, setSearchQuery] = useState('')
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [isSubscriber, setIsSubscriber] = useState(false)
-  const [articles, setArticles] = useState(MOCK_ARTICLES)
-  const [isLoading, setIsLoading] = useState(false)
+  const [articles, setArticles] = useState<APIArticle[]>([])
+  const [isLoading, setIsLoading] = useState(true)
   const [sidebarCategories, setSidebarCategories] = useState<Category[]>(TAXONOMY)
   const [showSidebar, setShowSidebar] = useState(true)
+
+  // Fetch articles from API
+  useEffect(() => {
+    const fetchArticles = async () => {
+      try {
+        setIsLoading(true)
+        const response = await fetch('/api/articles?limit=50')
+        if (!response.ok) throw new Error('Failed to fetch articles')
+        const data = await response.json()
+        setArticles(data)
+      } catch (error) {
+        console.error('Error fetching news:', error)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    fetchArticles()
+  }, [])
 
   // Calculate article counts for each category
   const calculateCategoryCounts = (categories: Category[]): Category[] => {
     return categories.map(category => {
       // Count articles for this category (exact match or starts with slug for children)
-      const directCount = articles.filter(article => 
-        article.categoryName.toLowerCase() === category.name.toLowerCase()
+      const directCount = articles.filter(article =>
+        article.category.name.toLowerCase() === category.name.toLowerCase()
       ).length
-      
+
       // Count articles for subcategories
-      const childrenCount = category.children 
+      const childrenCount = category.children
         ? calculateCategoryCounts(category.children).reduce((sum, child) => sum + (child.count || 0), 0)
         : 0
-      
+
       // Count articles whose category slug starts with this category's slug
       const hierarchicalCount = articles.filter(article => {
-        const articleCatLower = article.categoryName.toLowerCase()
+        const articleCatLower = article.category.name.toLowerCase()
         const catNameLower = category.name.toLowerCase()
         return articleCatLower === catNameLower || articleCatLower.includes(catNameLower)
       }).length
@@ -488,7 +441,7 @@ export default function Home() {
   const filteredArticles = articles.filter(article => {
     // For 'all', show everything
     if (selectedCategory === 'all') return true
-    
+
     // Map category slug to category name for comparison
     const categoryMap: Record<string, string> = {
       'sports': 'Sports',
@@ -544,27 +497,47 @@ export default function Home() {
 
     const targetCategory = categoryMap[selectedCategory]
     if (!targetCategory) return true // Fallback to showing all
-    
-    const articleCatLower = article.categoryName.toLowerCase()
+
+    const articleCatLower = article.category.name.toLowerCase()
     const targetCatLower = targetCategory.toLowerCase()
-    
+
     // Check if article category matches
     if (articleCatLower === targetCatLower) return true
-    
+
     // Check if article category starts with target (for subcategories)
     return articleCatLower.includes(targetCatLower)
   })
 
+  // Filter based on search query
   const matchesSearch = filteredArticles.filter(article => {
-    const matchesSearch = article.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         article.snippet.toLowerCase().includes(searchQuery.toLowerCase())
-    return matchesSearch
+    if (!searchQuery) return true
+    const q = searchQuery.toLowerCase()
+    return article.title.toLowerCase().includes(q) ||
+      article.snippet.toLowerCase().includes(q)
   })
 
   // Inject ads for non-subscribers
-  const feed: FeedItem[] = isSubscriber 
-    ? matchesSearch.map(article => ({ type: 'article' as const, data: article }))
-    : injectAds(matchesSearch, MOCK_ADS, { interval: 6, startAfter: 3 })
+  const feed: FeedItem[] = isSubscriber
+    ? matchesSearch.map(article => ({
+      type: 'article' as const,
+      data: {
+        ...article,
+        sourceName: article.source.name,
+        categoryName: article.category.name
+      }
+    }))
+    : injectAds(
+      matchesSearch.map(article => ({
+        type: 'article',
+        data: {
+          ...article,
+          sourceName: article.source.name,
+          categoryName: article.category.name
+        }
+      })),
+      MOCK_ADS,
+      { interval: 6, startAfter: 3 }
+    )
 
   const handleCategoryChange = (slug: string) => {
     setSelectedCategory(slug)
