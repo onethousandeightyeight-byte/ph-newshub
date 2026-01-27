@@ -206,7 +206,7 @@ def scrape_and_store():
 
                         if not category_id:
                             print(
-                                f"     [ERROR] Default category 'general' not found. Cannot post article.")
+                                f"     [ERROR] Default category 'world-current-affairs' not found. Cannot post article.")
                             print(
                                 f"     [DEBUG] Available categories: {list(categories_map.keys())}")
                             continue
