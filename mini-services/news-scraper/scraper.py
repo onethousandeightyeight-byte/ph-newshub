@@ -49,6 +49,7 @@ trusted_sources = [
     {"name": "Philstar.com", "url": "https://www.philstar.com/"},
     {"name": "Manila Bulletin", "url": "https://mb.com.ph/"},
     {"name": "Philippine News Agency", "url": "https://www.pna.gov.ph/"},
+    {"name": "BusinessWorld", "url": "https://www.bworldonline.com/"},
 ]
 # --- End Configuration ---
 
@@ -195,13 +196,13 @@ def scrape_and_store():
                         article_data['link'], config)
                     if validated_data and validated_data.get('valid'):
                         category_slug = validated_data.get(
-                            'category', 'general')
+                            'category', 'world-current-affairs')
                         category_id = categories_map.get(category_slug)
 
                         if not category_id:
                             print(
-                                f"     [WARN] Category '{category_slug}' not found. Defaulting to 'general'.")
-                            category_id = categories_map.get('general')
+                                f"     [WARN] Category '{category_slug}' not found. Defaulting to 'world-current-affairs'.")
+                            category_id = categories_map.get('world-current-affairs')
 
                         if not category_id:
                             print(

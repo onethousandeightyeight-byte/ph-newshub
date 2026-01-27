@@ -159,23 +159,25 @@ def _determine_category(title: str, content: str) -> str:
     """Determine article category based on keywords in title and content."""
     text_to_search = (title + " " + content).lower()
 
-    # Keyword-based classification
-    # This can be expanded and made more sophisticated
+    # Keyword-based classification for new taxonomy
     categories = {
-        'politics': ['politics', 'government', 'senate', 'congress', 'president', 'election', 'duterte', 'marcos'],
-        'business': ['business', 'economy', 'finance', 'stocks', 'market', 'trade', 'bsp', 'pse'],
+        'politics-government': ['politics', 'government', 'senate', 'congress', 'president', 'election', 'duterte', 'marcos'],
+        'business-finance-economy': ['business', 'economy', 'finance', 'stocks', 'market', 'trade', 'bsp', 'pse', 'inflation'],
         'sports': ['sports', 'pba', 'nba', 'gilas', 'basketball', 'football', 'boxing', 'uaap', 'ncaa'],
-        'entertainment': ['entertainment', 'celebrity', 'movie', 'music', 'showbiz', 'artist'],
-        'technology': ['technology', 'tech', 'software', 'internet', 'gadget', 'crypto', 'fintech'],
-        'health': ['health', 'medical', 'doh', 'covid-19', 'virus', 'hospital', 'doctor'],
-        'world': ['world', 'international', 'foreign', 'global', 'china', 'usa', 'united states']
+        'arts-entertainment-culture': ['entertainment', 'celebrity', 'movie', 'music', 'showbiz', 'artist', 'concert'],
+        'science-technology': ['technology', 'tech', 'software', 'internet', 'gadget', 'crypto', 'fintech', 'science', 'space'],
+        'health-medicine': ['health', 'medical', 'doh', 'covid-19', 'virus', 'hospital', 'doctor', 'vaccine'],
+        'world-current-affairs': ['world', 'international', 'foreign', 'global', 'china', 'usa', 'united states', 'war', 'ukraine'],
+        'law-crime-justice': ['crime', 'police', 'arrest', 'drug', 'murder', 'court', 'justice', 'pnp', 'nbi'],
+        'lifestyle-leisure': ['lifestyle', 'travel', 'food', 'restaurant', 'fashion', 'beauty', 'resort'],
+        'social-issues': ['human rights', 'education', 'religion', 'labor', 'strike', 'protest']
     }
 
     for category, keywords in categories.items():
         if any(keyword in text_to_search for keyword in keywords):
             return category
 
-    return 'general'
+    return 'world-current-affairs'  # Default fallback (was general)
 
 
 class ArticleValidator:

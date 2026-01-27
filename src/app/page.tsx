@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
@@ -365,9 +365,9 @@ const MOCK_ARTICLES = Array.from({ length: 50 }, (_, i) => {
     'News & Current Events', 'Weather', 'Typhoons', 'Crime & Justice', 'Health', 'DepEd',
     'Lifestyle', 'Food & Dining', 'Travel', 'Automotive', 'Fashion & Beauty'
   ]
-  
+
   const selectedCategory = categories[i % categories.length]
-  
+
   return {
     id: `article-${i + 1}`,
     title: [
@@ -441,130 +441,79 @@ const MOCK_ARTICLES = Array.from({ length: 50 }, (_, i) => {
 // Mock ads
 const MOCK_ADS: AdData[] = Array.from({ length: 4 }, (_, i) => createMockAd(i))
 
+export interface APIArticle {
+  id: string
+  title: string
+  snippet: string
+  imageUrl: string | null
+  publishedAt: string
+  originalUrl: string
+  source: { name: string; domain: string }
+  category: { name: string; slug: string }
+}
+
 export default function Home() {
   const [selectedCategory, setSelectedCategory] = useState('all')
   const [searchQuery, setSearchQuery] = useState('')
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [isSubscriber, setIsSubscriber] = useState(false)
-  const [articles, setArticles] = useState(MOCK_ARTICLES)
-  const [isLoading, setIsLoading] = useState(false)
-  const [sidebarCategories, setSidebarCategories] = useState<Category[]>(TAXONOMY)
+  const [articles, setArticles] = useState<APIArticle[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [sidebarCategories, setSidebarCategories] = useState<Category[]>([])
   const [showSidebar, setShowSidebar] = useState(true)
 
-  // Calculate article counts for each category
-  const calculateCategoryCounts = (categories: Category[]): Category[] => {
-    return categories.map(category => {
-      // Count articles for this category (exact match or starts with slug for children)
-      const directCount = articles.filter(article => 
-        article.categoryName.toLowerCase() === category.name.toLowerCase()
-      ).length
-      
-      // Count articles for subcategories
-      const childrenCount = category.children 
-        ? calculateCategoryCounts(category.children).reduce((sum, child) => sum + (child.count || 0), 0)
-        : 0
-      
-      // Count articles whose category slug starts with this category's slug
-      const hierarchicalCount = articles.filter(article => {
-        const articleCatLower = article.categoryName.toLowerCase()
-        const catNameLower = category.name.toLowerCase()
-        return articleCatLower === catNameLower || articleCatLower.includes(catNameLower)
-      }).length
+  useEffect(() => {
+    const initData = async () => {
+      try {
+        const [catsRes, artsRes] = await Promise.all([
+          fetch('/api/categories'),
+          fetch('/api/articles?limit=100&includeAds=false')
+        ])
 
-      return {
-        ...category,
-        count: hierarchicalCount,
-        children: category.children ? calculateCategoryCounts(category.children) : undefined
-      }
-    })
-  }
+        if (catsRes.ok) {
+          const cats = await catsRes.json()
+          setSidebarCategories([{ id: 'all', name: 'All News', slug: 'all', count: 0 }, ...cats])
+        }
 
-  // Update category counts when articles change
-  useState(() => {
-    setSidebarCategories(calculateCategoryCounts(TAXONOMY))
-  })
-
-  // Filter articles based on category and search
-  const filteredArticles = articles.filter(article => {
-    // For 'all', show everything
-    if (selectedCategory === 'all') return true
-    
-    // Map category slug to category name for comparison
-    const categoryMap: Record<string, string> = {
-      'sports': 'Sports',
-      'sports-basketball': 'Basketball',
-      'sports-basketball-pba': 'PBA',
-      'sports-basketball-nba': 'NBA',
-      'sports-football': 'Football',
-      'sports-football-azkals': 'Azkals',
-      'sports-boxing': 'Boxing',
-      'sports-boxing-pacquiao': 'Pacquiao',
-      'sports-volleyball': 'Volleyball',
-      'sports-volleyball-pvl': 'PVL',
-      'politics': 'Politics & Government',
-      'politics-national': 'National Government',
-      'politics-congress': 'Congress',
-      'politics-senate': 'Senate',
-      'politics-house': 'House of Representatives',
-      'politics-local': 'Local Government',
-      'politics-lgus': 'LGUs',
-      'politics-elections': 'Elections',
-      'business': 'Business & Economy',
-      'business-market': 'Market & Stocks',
-      'business-psei': 'PSEi',
-      'business-banking': 'Banking & Finance',
-      'business-banks': 'Banks',
-      'business-realestate': 'Real Estate',
-      'business-startup': 'Startups & Tech',
-      'business-trade': 'Trade & Exports',
-      'technology': 'Technology',
-      'tech-ai': 'AI & Innovation',
-      'tech-telecom': 'Telecommunications',
-      'tech-ecommerce': 'E-commerce',
-      'tech-gaming': 'Gaming',
-      'entertainment': 'Entertainment',
-      'ent-movies': 'Movies & TV',
-      'ent-local-film': 'Local Cinema',
-      'ent-music': 'Music',
-      'ent-opm': 'OPM',
-      'ent-celebs': 'Celebrities',
-      'ent-arts': 'Arts & Culture',
-      'news': 'News & Current Events',
-      'news-weather': 'Weather',
-      'news-typhoons': 'Typhoons',
-      'news-crime': 'Crime & Justice',
-      'news-health': 'Health',
-      'news-education': 'Education',
-      'lifestyle': 'Lifestyle',
-      'life-food': 'Food & Dining',
-      'life-travel': 'Travel',
-      'life-auto': 'Automotive',
-      'life-fashion': 'Fashion & Beauty'
+        if (artsRes.ok) {
+          const arts = await artsRes.json()
+          setArticles(arts)
+        }
+      } catch (e) { console.error(e) }
+      finally { setIsLoading(false) }
     }
+    initData()
+  }, [])
 
-    const targetCategory = categoryMap[selectedCategory]
-    if (!targetCategory) return true // Fallback to showing all
-    
-    const articleCatLower = article.categoryName.toLowerCase()
-    const targetCatLower = targetCategory.toLowerCase()
-    
-    // Check if article category matches
-    if (articleCatLower === targetCatLower) return true
-    
-    // Check if article category starts with target (for subcategories)
-    return articleCatLower.includes(targetCatLower)
+  // Filter articles based on category
+  const filteredArticles = articles.filter(article => {
+    if (selectedCategory === 'all') return true
+    const articleSlug = article.category?.slug || ''
+    return articleSlug === selectedCategory || articleSlug.startsWith(selectedCategory + '-')
   })
 
+  // Filter based on search query
   const matchesSearch = filteredArticles.filter(article => {
-    const matchesSearch = article.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         article.snippet.toLowerCase().includes(searchQuery.toLowerCase())
-    return matchesSearch
+    if (!searchQuery) return true
+    const q = searchQuery.toLowerCase()
+    return article.title.toLowerCase().includes(q) ||
+      article.snippet.toLowerCase().includes(q)
   })
+
+  // Map to FeedItems with flattened properties for UI
+  const articleItems = matchesSearch.map(article => ({
+    type: 'article' as const,
+    data: {
+      ...article,
+      sourceName: article.source.name,
+      categoryName: article.category.name
+    }
+  }))
 
   // Inject ads for non-subscribers
-  const feed: FeedItem[] = isSubscriber 
-    ? matchesSearch.map(article => ({ type: 'article' as const, data: article }))
-    : injectAds(matchesSearch, MOCK_ADS, { interval: 6, startAfter: 3 })
+  const feed: FeedItem[] = isSubscriber
+    ? articleItems
+    : injectAds(articleItems, MOCK_ADS, { interval: 6, startAfter: 3 })
 
   const handleCategoryChange = (slug: string) => {
     setSelectedCategory(slug)
