@@ -80,7 +80,7 @@ export async function GET(request: NextRequest) {
         clientName: ad.clientName,
         targetUrl: ad.targetUrl,
         imageAsset: ad.imageAsset,
-        altText: ad.altText
+        altText: ad.altText || undefined
       }))
 
       const feed = injectAds(formattedArticles, formattedAds, DEFAULT_AD_CONFIG)
