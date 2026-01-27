@@ -11,6 +11,7 @@
  */
 
 import { PrismaClient } from '@prisma/client'
+import 'dotenv/config'
 
 const prisma = new PrismaClient()
 
@@ -90,7 +91,7 @@ async function main() {
   const allCategories = await prisma.category.findMany({
     orderBy: { name: 'asc' }
   })
-  
+
   allCategories.forEach(cat => {
     console.log(`   ${cat.name.padEnd(20)} → ${cat.slug.padEnd(15)} → ${cat.id}`)
   })
