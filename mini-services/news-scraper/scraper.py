@@ -223,7 +223,7 @@ def scrape_and_store():
                             print(
                                 f"     [ERROR] Failed to store article. HTTP {response.status_code}")
                             print(
-                                f"     [DEBUG] Response body: {response.text[:500]}")
+                                f"     [DEBUG] Response body: {response.text[:5000]}")
                     else:
                         reason = validated_data.get('reason', 'Unknown') if validated_data else 'Validation returned None'
                         title = validated_data.get('title', 'Unknown title') if validated_data else 'Unknown'
