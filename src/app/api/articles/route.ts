@@ -235,9 +235,13 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(article, { status: 201 })
   } catch (error) {
     console.error('Error creating article:', error)
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+    const fullMessage = error instanceof Error ? error.message : String(error)
+    const details = fullMessage.length > 2000
+      ? '...' + fullMessage.slice(-2000)
+      : fullMessage
+
     return NextResponse.json(
-      { error: 'Failed to create article', details: errorMessage },
+      { error: 'Failed to create article', details },
       { status: 500 }
     )
   }
