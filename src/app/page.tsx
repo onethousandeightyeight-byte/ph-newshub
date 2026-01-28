@@ -423,20 +423,18 @@ export default function Home() {
       article.snippet.toLowerCase().includes(q)
   })
 
-  // Map to FeedItems with flattened properties for UI
-  const articleItems = matchesSearch.map(article => ({
-    type: 'article' as const,
-    data: {
-      ...article,
-      sourceName: article.source.name,
-      categoryName: article.category.name
-    }
+  // Map to flattened article data for UI
+  const flattenedArticles = matchesSearch.map(article => ({
+    ...article,
+    sourceName: article.source.name,
+    categoryName: article.category.name
   }))
 
   // Inject ads for non-subscribers
   const feed: FeedItem[] = isSubscriber
-    ? articleItems
-    : injectAds(articleItems, MOCK_ADS, { interval: 6, startAfter: 3 })
+    ? flattenedArticles.map(a => ({ type: 'article' as const, data: a }))
+    : injectAds(flattenedArticles, MOCK_ADS, { interval: 6, startAfter: 3 })
+
 
   const handleCategoryChange = (slug: string) => {
     setSelectedCategory(slug)
