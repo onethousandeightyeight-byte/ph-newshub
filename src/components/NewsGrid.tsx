@@ -7,7 +7,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { AlertCircle } from 'lucide-react'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 
-export type FeedItem = 
+export type FeedItem =
   | { type: 'article'; data: any }
   | { type: 'ad'; data: any }
 
@@ -114,7 +114,7 @@ export function NewsGrid({
                   title={item.data.title}
                   snippet={item.data.snippet}
                   imageUrl={item.data.imageUrl}
-                  publishedAt={new Date(item.data.publishedAt)}
+                  publishedAt={item.data.publishedAt ? new Date(item.data.publishedAt) : new Date()}
                   sourceName={item.data.sourceName}
                   categoryName={item.data.categoryName}
                   originalUrl={item.data.originalUrl}

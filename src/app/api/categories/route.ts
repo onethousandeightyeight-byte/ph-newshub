@@ -43,12 +43,22 @@ export async function GET(request: NextRequest) {
         { parentId: 'asc' }, // Root categories first
         { name: 'asc' }
       ],
-      include: flat ? undefined : {
-        children: {
-          include: {
-            children: true
+      include: {
+        _count: {
+          select: { articles: true }
+        },
+        ...(flat ? {} : {
+          children: {
+            include: {
+              _count: { select: { articles: true } },
+              children: {
+                include: {
+                  _count: { select: { articles: true } }
+                }
+              }
+            }
           }
-        }
+        })
       }
     })
 
@@ -78,9 +88,19 @@ export async function GET(request: NextRequest) {
       return NextResponse.json(flatCategories)
     }
 
-    // Return hierarchical structure
+    // Return hierarchical structure with counts
     const rootCategories = categories.filter(cat => !cat.parentId)
-    return NextResponse.json(rootCategories)
+
+    // Transform to include count field
+    const transformCategory = (cat: any): any => ({
+      id: cat.id,
+      name: cat.name,
+      slug: cat.slug,
+      count: cat._count?.articles || 0,
+      children: cat.children?.map(transformCategory)
+    })
+
+    return NextResponse.json(rootCategories.map(transformCategory))
   } catch (error) {
     console.error('Error fetching categories:', error)
     return NextResponse.json(
