@@ -93,17 +93,33 @@ export async function GET(request: NextRequest) {
       return NextResponse.json(flatCategories);
     }
 
-    // Helper to transform category structure with counts
-    const transformCategory = (category: any): any => ({
-      id: category.id,
-      name: category.name,
-      slug: category.slug,
-      parentId: category.parentId,
-      count: category._count?.articles || 0,
-      children: category.children?.map(transformCategory),
-    });
+    // Helper to transform category structure with aggregated counts
+    // Parent categories include the sum of their own articles + all child articles
+    const transformCategory = (category: any): any => {
+      // First, transform children recursively
+      const transformedChildren = category.children?.map(transformCategory) || []
 
-    // Return hierarchical structure with counts
+      // Calculate the sum of all child counts
+      const childrenTotalCount = transformedChildren.reduce(
+        (sum: number, child: any) => sum + (child.count || 0),
+        0
+      )
+
+      // Own direct count + all children's counts
+      const ownCount = category._count?.articles || 0
+      const totalCount = ownCount + childrenTotalCount
+
+      return {
+        id: category.id,
+        name: category.name,
+        slug: category.slug,
+        parentId: category.parentId,
+        count: totalCount,
+        children: transformedChildren.length > 0 ? transformedChildren : undefined,
+      }
+    };
+
+    // Return hierarchical structure with aggregated counts
     const rootCategories = categories.filter(cat => !cat.parentId)
     const transformedCategories = rootCategories.map(transformCategory)
     return NextResponse.json(transformedCategories)
