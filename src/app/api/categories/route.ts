@@ -43,17 +43,31 @@ export async function GET(request: NextRequest) {
         { parentId: 'asc' }, // Root categories first
         { name: 'asc' },
       ],
-      include: flat ? undefined : {
-        children: {
-          include: {
-            children: true
+      include: {
+        _count: {
+          select: { articles: true }
+        },
+        ...(flat ? {} : {
+          children: {
+            include: {
+              _count: {
+                select: { articles: true }
+              },
+              children: {
+                include: {
+                  _count: {
+                    select: { articles: true }
+                  }
+                }
+              }
+            }
           }
-        }
+        })
       }
     })
 
     if (flat) {
-      // Return flat list with parent info
+      // Return flat list with parent info and count
       const flatCategories = await Promise.all(
         categories.map(async (category) => {
           let parentName: string | null = null
@@ -70,7 +84,8 @@ export async function GET(request: NextRequest) {
             name: category.name,
             slug: category.slug,
             parentId: category.parentId,
-            parentName
+            parentName,
+            count: category._count?.articles || 0
           }
         })
       );
@@ -78,17 +93,20 @@ export async function GET(request: NextRequest) {
       return NextResponse.json(flatCategories);
     }
 
-    // Helper to transform category structure
-    const transformCategory = (category: any) => ({
-      ...category,
+    // Helper to transform category structure with counts
+    const transformCategory = (category: any): any => ({
+      id: category.id,
+      name: category.name,
+      slug: category.slug,
+      parentId: category.parentId,
       count: category._count?.articles || 0,
       children: category.children?.map(transformCategory),
-      _count: undefined, // remove the _count property
     });
 
-    // Return hierarchical structure
+    // Return hierarchical structure with counts
     const rootCategories = categories.filter(cat => !cat.parentId)
-    return NextResponse.json(rootCategories)
+    const transformedCategories = rootCategories.map(transformCategory)
+    return NextResponse.json(transformedCategories)
   } catch (error) {
     console.error('Error fetching categories:', error)
     return NextResponse.json(
