@@ -96,12 +96,17 @@ export async function GET(request: NextRequest) {
     // Helper to transform category structure with aggregated counts
     // Parent categories include the sum of their own articles + all child articles
     const transformCategory = (category: any): any => {
-      // First, transform children recursively
-      const transformedChildren = category.children?.map(transformCategory) || []
+      // Check if children exist and is an array before mapping
+      const hasChildren = Array.isArray(category.children) && category.children.length > 0
+
+      // Transform children recursively only if they exist
+      const transformedChildren = hasChildren
+        ? category.children.map(transformCategory)
+        : []
 
       // Calculate the sum of all child counts
       const childrenTotalCount = transformedChildren.reduce(
-        (sum: number, child: any) => sum + (child.count || 0),
+        (sum: number, child: any) => sum + (child?.count || 0),
         0
       )
 
@@ -113,9 +118,9 @@ export async function GET(request: NextRequest) {
         id: category.id,
         name: category.name,
         slug: category.slug,
-        parentId: category.parentId,
+        parentId: category.parentId || null,
         count: totalCount,
-        children: transformedChildren.length > 0 ? transformedChildren : undefined,
+        children: hasChildren ? transformedChildren : undefined,
       }
     };
 
