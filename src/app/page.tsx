@@ -390,14 +390,20 @@ export default function Home() {
       try {
         const [catsRes, artsRes] = await Promise.all([
           fetch('/api/categories'),
-          fetch('/api/articles?limit=200') // Fetch more articles for a better count
+          fetch('/api/articles?limit=200&includeAds=false') // includeAds=false to get raw array
         ])
 
         let totalArticles = 0
         if (artsRes.ok) {
           const arts = await artsRes.json()
-          setArticles(arts)
-          totalArticles = arts.length // This is an approximation
+          // Validate that arts is an array before using
+          if (Array.isArray(arts)) {
+            setArticles(arts)
+            totalArticles = arts.length
+          } else {
+            console.error('Articles API returned non-array response:', arts)
+            setArticles([])
+          }
         }
 
         if (catsRes.ok) {
