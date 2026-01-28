@@ -41,16 +41,28 @@ export async function GET(request: NextRequest) {
     const categories = await db.category.findMany({
       orderBy: [
         { parentId: 'asc' }, // Root categories first
-        { name: 'asc' }
+        { name: 'asc' },
       ],
-      include: flat ? undefined : {
+      include: {
+        _count: {
+          select: { articles: true },
+        },
         children: {
           include: {
-            children: true
-          }
-        }
-      }
-    })
+            _count: {
+              select: { articles: true },
+            },
+            children: {
+              include: {
+                _count: {
+                  select: { articles: true },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
 
     if (flat) {
       // Return flat list with parent info
@@ -73,13 +85,24 @@ export async function GET(request: NextRequest) {
             parentName
           }
         })
-      )
+      );
 
-      return NextResponse.json(flatCategories)
+      return NextResponse.json(flatCategories);
     }
 
+    // Helper to transform category structure
+    const transformCategory = (category: any) => ({
+      ...category,
+      count: category._count?.articles || 0,
+      children: category.children?.map(transformCategory),
+      _count: undefined, // remove the _count property
+    });
+
     // Return hierarchical structure
-    const rootCategories = categories.filter(cat => !cat.parentId)
+    const rootCategories = categories
+      .filter((cat) => !cat.parentId)
+      .map(transformCategory);
+
     return NextResponse.json(rootCategories)
   } catch (error) {
     console.error('Error fetching categories:', error)

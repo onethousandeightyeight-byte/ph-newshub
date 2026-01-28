@@ -385,17 +385,25 @@ export default function Home() {
       try {
         const [catsRes, artsRes] = await Promise.all([
           fetch('/api/categories'),
-          fetch('/api/articles?limit=100&includeAds=false')
+          fetch('/api/articles?limit=200') // Fetch more articles for a better count
         ])
 
-        if (catsRes.ok) {
-          const cats = await catsRes.json()
-          setSidebarCategories([{ id: 'all', name: 'All News', slug: 'all', count: 0 }, ...cats])
-        }
-
+        let totalArticles = 0
         if (artsRes.ok) {
           const arts = await artsRes.json()
           setArticles(arts)
+          totalArticles = arts.length // This is an approximation
+        }
+
+        if (catsRes.ok) {
+          const cats = await catsRes.json()
+          // We need to get the total from the API, but for now we'll sum up what we have
+          const calculatedTotal = cats.reduce((sum: number, cat: Category) => sum + (cat.count || 0), 0)
+
+          setSidebarCategories([
+            { id: 'all', name: 'All News', slug: 'all', count: calculatedTotal },
+            ...cats
+          ])
         }
       } catch (e) { console.error(e) }
       finally { setIsLoading(false) }
