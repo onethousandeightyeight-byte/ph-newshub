@@ -41,9 +41,8 @@ function CategoryItem({ category, level, selectedCategory, onCategoryChange }: C
             onCategoryChange(category.slug)
           }
         }}
-        className={`w-full text-left px-3 py-2 rounded-md transition-all duration-200 hover:bg-muted/80 flex items-center gap-2 ${
-          isSelected ? 'bg-primary text-primary-foreground' : ''
-        }`}
+        className={`w-full text-left px-3 py-2 rounded-md transition-all duration-200 hover:bg-muted/80 flex items-center gap-2 ${isSelected ? 'bg-primary text-primary-foreground' : ''
+          }`}
         style={{ paddingLeft: `${12 + level * 12}px` }}
       >
         {hasChildren ? (
@@ -55,9 +54,9 @@ function CategoryItem({ category, level, selectedCategory, onCategoryChange }: C
         ) : (
           <Folder className="h-4 w-4 flex-shrink-0 opacity-70" />
         )}
-        
+
         <span className="flex-1 truncate">{category.name}</span>
-        
+
         <Badge
           variant={isSelected ? 'secondary' : 'outline'}
           className="text-xs font-normal"
@@ -65,7 +64,7 @@ function CategoryItem({ category, level, selectedCategory, onCategoryChange }: C
           {category.count || 0}
         </Badge>
       </button>
-      
+
       {hasChildren && isExpanded && (
         <div className="mt-1 space-y-0.5">
           {category.children?.map((child) => (
@@ -84,6 +83,9 @@ function CategoryItem({ category, level, selectedCategory, onCategoryChange }: C
 }
 
 export function CategorySidebar({ categories, selectedCategory, onCategoryChange }: CategorySidebarProps) {
+  // Defensive check: ensure categories is always an array
+  const safeCategories = Array.isArray(categories) ? categories : []
+
   return (
     <div className="h-full flex flex-col bg-card border-r">
       <div className="p-4 border-b">
@@ -92,10 +94,10 @@ export function CategorySidebar({ categories, selectedCategory, onCategoryChange
           Browse Topics
         </h2>
       </div>
-      
+
       <ScrollArea className="flex-1">
         <div className="p-4 space-y-1">
-          {categories.map((category) => (
+          {safeCategories.map((category) => (
             <CategoryItem
               key={category.id}
               category={category}
@@ -106,18 +108,18 @@ export function CategorySidebar({ categories, selectedCategory, onCategoryChange
           ))}
         </div>
       </ScrollArea>
-      
+
       <div className="p-4 border-t bg-muted/30">
         <div className="text-xs text-muted-foreground">
           <p className="font-medium mb-2">Statistics</p>
           <div className="space-y-1">
             <div className="flex justify-between">
               <span>Total Categories:</span>
-              <span className="font-semibold">{categories.length}</span>
+              <span className="font-semibold">{safeCategories.length}</span>
             </div>
             <div className="flex justify-between">
               <span>Total Articles:</span>
-              <span className="font-semibold">{categories.reduce((sum, cat) => sum + (cat.count || 0), 0)}</span>
+              <span className="font-semibold">{safeCategories.reduce((sum, cat) => sum + (cat.count || 0), 0)}</span>
             </div>
           </div>
         </div>

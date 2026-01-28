@@ -42,13 +42,19 @@ export function injectAds(
   ads: AdData[],
   config: AdPlacementConfig = { interval: 6 }
 ): FeedItem[] {
+  // Defensive check: ensure articles is an array
+  if (!Array.isArray(articles)) {
+    console.error('injectAds: articles is not an array', articles)
+    return []
+  }
+
   const {
     interval,
     startAfter = 0,
     maxAds = Infinity
   } = config
 
-  if (ads.length === 0 || interval <= 0) {
+  if (!Array.isArray(ads) || ads.length === 0 || interval <= 0) {
     return articles.map(article => ({ type: 'article' as const, data: article }))
   }
 
@@ -61,7 +67,7 @@ export function injectAds(
     feed.push({ type: 'article', data: article })
 
     // Check if we should inject an ad after this article
-    const shouldInjectAd = 
+    const shouldInjectAd =
       (index + 1) % interval === 0 && // At the right interval
       (index + 1) > startAfter && // After the start offset
       adsInjected < maxAds && // Under the max limit
