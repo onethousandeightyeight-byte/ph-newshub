@@ -402,13 +402,24 @@ export default function Home() {
 
         if (catsRes.ok) {
           const cats = await catsRes.json()
-          // We need to get the total from the API, but for now we'll sum up what we have
-          const calculatedTotal = cats.reduce((sum: number, cat: Category) => sum + (cat.count || 0), 0)
+          // Validate that cats is an array before processing
+          if (Array.isArray(cats)) {
+            // We need to get the total from the API, but for now we'll sum up what we have
+            const calculatedTotal = cats.reduce((sum: number, cat: Category) => sum + (cat.count || 0), 0)
 
-          setSidebarCategories([
-            { id: 'all', name: 'All News', slug: 'all', count: calculatedTotal },
-            ...cats
-          ])
+            setSidebarCategories([
+              { id: 'all', name: 'All News', slug: 'all', count: calculatedTotal },
+              ...cats
+            ])
+          } else {
+            console.error('Categories API returned non-array response:', cats)
+            // Use fallback TAXONOMY if API returns invalid data
+            setSidebarCategories(TAXONOMY)
+          }
+        } else {
+          // Fall back to hardcoded TAXONOMY if API fails
+          console.error('Failed to fetch categories, using fallback')
+          setSidebarCategories(TAXONOMY)
         }
       } catch (e) { console.error(e) }
       finally { setIsLoading(false) }
