@@ -94,7 +94,9 @@ export async function GET(request: NextRequest) {
     }
 
     // Helper to transform category structure with aggregated counts
-    // Parent categories include the sum of their own articles + all child articles
+    // Implements pivot-table style aggregation:
+    // - Leaf categories (no children): show their direct article count
+    // - Parent categories: show ONLY the sum of children's counts (not their own direct articles)
     const transformCategory = (category: any): any => {
       // Check if children exist and is an array before mapping
       const hasChildren = Array.isArray(category.children) && category.children.length > 0
@@ -104,15 +106,19 @@ export async function GET(request: NextRequest) {
         ? category.children.map(transformCategory)
         : []
 
-      // Calculate the sum of all child counts
+      // Calculate the sum of all child counts (for parent categories)
       const childrenTotalCount = transformedChildren.reduce(
         (sum: number, child: any) => sum + (child?.count || 0),
         0
       )
 
-      // Own direct count + all children's counts
+      // Own direct count (only used for leaf categories)
       const ownCount = category._count?.articles || 0
-      const totalCount = ownCount + childrenTotalCount
+
+      // Pivot-table style: 
+      // - If this category has children, count = sum of children only
+      // - If this is a leaf category, count = its own direct articles
+      const totalCount = hasChildren ? childrenTotalCount : ownCount
 
       return {
         id: category.id,
@@ -140,7 +146,7 @@ export async function GET(request: NextRequest) {
 /**
  * POST /api/categories
  * 
- * Create a new category (admin only)
+ * Create a new category or return existing if slug already exists
  */
 export async function POST(request: NextRequest) {
   try {
@@ -154,11 +160,22 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Check if category with this slug already exists
+    const existing = await db.category.findUnique({
+      where: { slug }
+    })
+
+    if (existing) {
+      // Return existing category
+      return NextResponse.json(existing, { status: 200 })
+    }
+
+    // Create new category
     const category = await db.category.create({
       data: {
         name,
         slug,
-        parentId
+        parentId: parentId || null
       }
     })
 
@@ -166,7 +183,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('Error creating category:', error)
     return NextResponse.json(
-      { error: 'Failed to create category' },
+      { error: 'Failed to create category', details: String(error) },
       { status: 500 }
     )
   }

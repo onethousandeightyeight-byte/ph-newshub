@@ -54,6 +54,89 @@ trusted_sources = [
 # --- End Configuration ---
 
 
+def create_category_from_path(article_url: str, category_slug: str, categories_map: dict) -> str:
+    """
+    Create a category dynamically from the URL path if it doesn't exist.
+    Returns the category ID of the created (or existing) category.
+    
+    Args:
+        article_url: The article URL to extract path from
+        category_slug: The category slug extracted by validate_article
+        categories_map: Current mapping of slug -> id
+    """
+    from urllib.parse import urlparse
+    
+    try:
+        parsed_url = urlparse(article_url)
+        path_parts = [p for p in parsed_url.path.strip('/').split('/') if p and not p.isdigit()]
+        
+        # Get first 1-2 relevant path segments for category hierarchy
+        # e.g., /nation/politics/article-slug -> ['nation', 'politics']
+        category_parts = []
+        excluded = ['article', 'articles', 'news', 'story', 'stories', 'post', 'posts', 'read', 'view']
+        
+        for part in path_parts[:3]:  # Check first 3 parts
+            # Skip numeric IDs, dates, and generic segments
+            if not part.isdigit() and part not in excluded and len(part) > 2:
+                # Skip if it looks like an article slug (usually has hyphens and many words)
+                if '-' in part and len(part.split('-')) > 4:
+                    continue
+                category_parts.append(part)
+            if len(category_parts) >= 2:
+                break
+        
+        # If we couldn't extract from URL, use the provided slug
+        if not category_parts:
+            category_parts = [category_slug]
+        
+        # Convert to proper names and slugs
+        parent_id = None
+        created_category_id = None
+        
+        for i, part in enumerate(category_parts):
+            slug = part.lower().replace(' ', '-')
+            name = part.replace('-', ' ').title()
+            
+            # Check if this category already exists
+            if slug in categories_map:
+                parent_id = categories_map[slug]
+                created_category_id = parent_id
+                continue
+            
+            # Create the category via API
+            print(f"     [INFO] Creating category: {name} (slug: {slug}, parent: {parent_id})")
+            try:
+                create_response = requests.post(
+                    f"{API_URL}/categories",
+                    json={
+                        "name": name,
+                        "slug": slug,
+                        "parentId": parent_id
+                    },
+                    headers=get_random_headers(),
+                    verify=True,
+                    timeout=15
+                )
+                
+                if create_response.status_code in [200, 201]:
+                    new_category = create_response.json()
+                    new_id = new_category.get('id')
+                    categories_map[slug] = new_id  # Update local cache
+                    parent_id = new_id  # Use as parent for next level
+                    created_category_id = new_id
+                    print(f"     [SUCCESS] Created category: {name} (id: {new_id})")
+                else:
+                    print(f"     [ERROR] Failed to create category: {create_response.status_code}")
+                    print(f"     [DEBUG] Response: {create_response.text[:200]}")
+            except requests.exceptions.RequestException as e:
+                print(f"     [ERROR] Failed to create category: {e}")
+        
+        return created_category_id
+        
+    except Exception as e:
+        print(f"     [ERROR] Error creating category from path: {e}")
+        return None
+
 def discover_rss_feeds(site_url: str) -> List[str]:
     """Attempts to discover RSS feed URLs from a website's homepage."""
     print(f"  -> Discovering RSS feeds for {site_url}")
@@ -196,20 +279,17 @@ def scrape_and_store():
                         article_data['link'], config)
                     if validated_data and validated_data.get('valid'):
                         category_slug = validated_data.get(
-                            'category', 'world-current-affairs')
+                            'category', 'general')
                         category_id = categories_map.get(category_slug)
 
+                        # If category not found, create it dynamically from URL path
                         if not category_id:
-                            print(
-                                f"     [WARN] Category '{category_slug}' not found. Defaulting to 'world-current-affairs'.")
-                            category_id = categories_map.get('world-current-affairs')
-
-                        if not category_id:
-                            print(
-                                f"     [ERROR] Default category 'world-current-affairs' not found. Cannot post article.")
-                            print(
-                                f"     [DEBUG] Available categories: {list(categories_map.keys())}")
-                            continue
+                            print(f"     [INFO] Category '{category_slug}' not found. Creating dynamically...")
+                            category_id = create_category_from_path(
+                                article_data['link'], 
+                                category_slug, 
+                                categories_map
+                            )
 
                         # Build payload with proper error handling for missing keys
                         try:

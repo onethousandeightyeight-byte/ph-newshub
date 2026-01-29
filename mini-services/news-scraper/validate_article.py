@@ -155,29 +155,653 @@ def _extract_image_url(soup: BeautifulSoup) -> Optional[str]:
     return None
 
 
+# =============================================================================
+# SOURCE-BASED CATEGORY EXTRACTION
+# Maps category paths from Philippine news websites to our taxonomy slugs
+# =============================================================================
+
+SOURCE_CATEGORY_MAP = {
+    # Rappler - rappler.com/{category}/{subcategory}/...
+    'rappler.com': {
+        # More specific paths first (longer matches take priority)
+        'nation/elections': 'elections',
+        'nation/weather': 'hurricanes-typhoons',
+        'sports/basketball': 'basketball',
+        'sports/boxing': 'boxing',
+        'sports/football': 'football-soccer',
+        'sports/volleyball': 'team-sports',
+        'business/markets': 'stocks',
+        'business/economy': 'economy',
+        'technology/features': 'consumer-tech',
+        'technology/social-media': 'software-internet',
+        'entertainment/movies': 'movies',
+        'entertainment/music': 'music',
+        'entertainment/celebrities': 'celebrity-gossip',
+        'life-and-style/food': 'food-drink',
+        'life-and-style/travel': 'travel',
+        'life-and-style/health': 'health-medicine',
+        # Main categories
+        'nation': 'politics-government',
+        'world': 'world-current-affairs',
+        'sports': 'sports',
+        'business': 'business-finance-economy',
+        'technology': 'technology',
+        'entertainment': 'arts-entertainment-culture',
+        'life-and-style': 'lifestyle-leisure',
+        'newsbreak': 'politics-government',
+        'voices': 'opinion-editorial',
+        'science': 'science',
+        'environment': 'environment',
+        'moveph': 'social-issues',
+    },
+    
+    # GMA News - gmanetwork.com/news/{category}/...
+    'gmanetwork.com': {
+        'news/nation': 'politics-government',
+        'news/regions': 'politics-government',
+        'news/metro': 'politics-government',
+        'news/world': 'world-current-affairs',
+        'news/opinion': 'opinion-editorial',
+        'sports/basketball': 'basketball',
+        'sports/boxing': 'boxing',
+        'sports/volleyball': 'team-sports',
+        'sports/football': 'football-soccer',
+        'money/economy': 'economy',
+        'money/personal-finance': 'personal-finance',
+        'money/companies': 'corporate-business',
+        'scitech/science': 'science',
+        'scitech/technology': 'technology',
+        'scitech/gadgets': 'consumer-tech',
+        'showbiz': 'celebrity-gossip',
+        'lifestyle/travel': 'travel',
+        'lifestyle/food': 'food-drink',
+        'lifestyle/health': 'health-medicine',
+        'lifestyle/family': 'lifestyle-leisure',
+        # Main categories
+        'news': 'politics-government',
+        'sports': 'sports',
+        'money': 'business-finance-economy',
+        'scitech': 'science-technology',
+        'lifestyle': 'lifestyle-leisure',
+        'pinoyabroad': 'world-current-affairs',
+        'weather': 'hurricanes-typhoons',
+    },
+    
+    # Inquirer - inquirer.net/{section}/...
+    'inquirer.net': {
+        'newsinfo/nation': 'politics-government',
+        'newsinfo/metro': 'politics-government',
+        'newsinfo/regions': 'politics-government',
+        'newsinfo/world': 'world-current-affairs',
+        'sports/basketball': 'basketball',
+        'sports/boxing': 'boxing',
+        'sports/volleyball': 'team-sports',
+        'sports/football': 'football-soccer',
+        'business/economy': 'economy',
+        'business/stocks': 'stocks',
+        'business/finance': 'personal-finance',
+        'entertainment/movies': 'movies',
+        'entertainment/music': 'music',
+        'entertainment/celebrities': 'celebrity-gossip',
+        'lifestyle/travel': 'travel',
+        'lifestyle/food': 'food-drink',
+        'lifestyle/health': 'health-medicine',
+        'technology/gadgets': 'consumer-tech',
+        'technology/social-media': 'software-internet',
+        # Main categories
+        'newsinfo': 'politics-government',
+        'news': 'politics-government',
+        'sports': 'sports',
+        'business': 'business-finance-economy',
+        'entertainment': 'arts-entertainment-culture',
+        'lifestyle': 'lifestyle-leisure',
+        'technology': 'technology',
+        'globalnation': 'world-current-affairs',
+        'opinion': 'opinion-editorial',
+        'pop': 'celebrity-gossip',
+        'esports': 'sports',
+    },
+    
+    # Philstar - philstar.com/{section}/...
+    'philstar.com': {
+        'headlines': 'politics-government',
+        'nation': 'politics-government',
+        'metro': 'politics-government',
+        'world': 'world-current-affairs',
+        'business/economy': 'economy',
+        'business/stock': 'stocks',
+        'sports/basketball': 'basketball',
+        'sports/boxing': 'boxing',
+        'sports/football': 'football-soccer',
+        'entertainment/movies': 'movies',
+        'entertainment/music': 'music',
+        'lifestyle/travel': 'travel',
+        'lifestyle/food': 'food-drink',
+        'lifestyle/health': 'health-medicine',
+        # Main categories
+        'business': 'business-finance-economy',
+        'sports': 'sports',
+        'entertainment': 'arts-entertainment-culture',
+        'lifestyle': 'lifestyle-leisure',
+        'opinion': 'opinion-editorial',
+        'ngn': 'world-current-affairs',
+        'pilipino-star-ngayon': 'politics-government',
+    },
+    
+    # ABS-CBN News - news.abs-cbn.com/{category}/...
+    'abs-cbn.com': {
+        'news/nation': 'politics-government',
+        'news/world': 'world-current-affairs',
+        'sports/basketball': 'basketball',
+        'sports/boxing': 'boxing',
+        'business/economy': 'economy',
+        'business/companies': 'corporate-business',
+        'entertainment/movies': 'movies',
+        'entertainment/music': 'music',
+        'life/travel': 'travel',
+        'life/food': 'food-drink',
+        'life/health': 'health-medicine',
+        # Main categories
+        'news': 'politics-government',
+        'sports': 'sports',
+        'business': 'business-finance-economy',
+        'entertainment': 'arts-entertainment-culture',
+        'life': 'lifestyle-leisure',
+        'overseas': 'world-current-affairs',
+        'spotlight': 'politics-government',
+    },
+    
+    # Manila Bulletin - mb.com.ph/{section}/...
+    'mb.com.ph': {
+        'news/national': 'politics-government',
+        'news/metro': 'politics-government',
+        'news/world': 'world-current-affairs',
+        'business/economy': 'economy',
+        'business/finance': 'personal-finance',
+        'sports/basketball': 'basketball',
+        'sports/boxing': 'boxing',
+        'entertainment/celebrity': 'celebrity-gossip',
+        'lifestyle/travel': 'travel',
+        'lifestyle/food': 'food-drink',
+        'lifestyle/health': 'health-medicine',
+        # Main categories
+        'news': 'politics-government',
+        'business': 'business-finance-economy',
+        'sports': 'sports',
+        'entertainment': 'arts-entertainment-culture',
+        'lifestyle': 'lifestyle-leisure',
+        'opinion': 'opinion-editorial',
+        'technology': 'technology',
+    },
+    
+    # Philippine News Agency - pna.gov.ph/articles/...
+    'pna.gov.ph': {
+        'politics': 'politics-government',
+        'regions': 'politics-government',
+        'economy': 'economy',
+        'sports': 'sports',
+        'science-and-technology': 'science-technology',
+        'lifestyle': 'lifestyle-leisure',
+        'feature': 'world-current-affairs',
+    },
+    
+    # BusinessWorld Online - bworldonline.com/...
+    'bworldonline.com': {
+        'economy': 'economy',
+        'banking-finance': 'personal-finance',
+        'stock-market': 'stocks',
+        'corporate': 'corporate-business',
+        'world': 'world-current-affairs',
+        'technology': 'technology',
+        'opinion': 'opinion-editorial',
+        'sports': 'sports',
+        'lifestyle': 'lifestyle-leisure',
+    },
+}
+
+
+def _extract_source_category(url: str, soup: BeautifulSoup) -> Optional[str]:
+    """
+    Extract category from source website's URL path or meta tags.
+    Returns the raw category slug from the source (not mapped to our taxonomy).
+    The scraper will create categories dynamically if they don't exist.
+    """
+    try:
+        parsed_url = urlparse(url)
+        path = parsed_url.path.lower().strip('/')
+        path_parts = [p for p in path.split('/') if p]
+        
+        # Skip these common non-category path segments
+        excluded = ['article', 'articles', 'news', 'story', 'stories', 'post', 'posts', 
+                    'read', 'view', 'en', 'ph', 'www', 'amp', 'mobile', 'index']
+        
+        # Find the first meaningful category segment
+        for part in path_parts:
+            # Skip numeric IDs, dates, and excluded words
+            if part.isdigit():
+                continue
+            if part in excluded:
+                continue
+            if len(part) < 3:
+                continue
+            # Skip if it looks like an article slug (many hyphenated words)
+            if '-' in part and len(part.split('-')) > 4:
+                continue
+            # Skip date-like patterns (2024, 01, 29, etc.)
+            if len(part) == 4 and part.isdigit():
+                continue
+            if len(part) == 2 and part.isdigit():
+                continue
+            
+            # Found a category!
+            return part
+        
+        # Fallback: Try extracting from meta tags
+        section_meta = soup.select_one('meta[property="article:section"]')
+        if section_meta and section_meta.get('content'):
+            section = section_meta['content'].lower().strip().replace(' ', '-')
+            if len(section) > 2:
+                return section
+        
+        og_section = soup.select_one('meta[property="og:section"]')
+        if og_section and og_section.get('content'):
+            section = og_section['content'].lower().strip().replace(' ', '-')
+            if len(section) > 2:
+                return section
+        
+        return None
+        
+    except Exception as e:
+        print(f"     [DEBUG] Error extracting source category: {e}")
+        return None
+
+
 def _determine_category(title: str, content: str) -> str:
-    """Determine article category based on keywords in title and content."""
+    """
+    Determine article category based on keywords in title and content.
+    Uses hierarchical matching - most specific (leaf) categories are checked first,
+    falling back to broader parent categories only if no specific match is found.
+    """
     text_to_search = (title + " " + content).lower()
 
-    # Keyword-based classification for new taxonomy
-    categories = {
-        'politics-government': ['politics', 'government', 'senate', 'congress', 'president', 'election', 'duterte', 'marcos'],
-        'business-finance-economy': ['business', 'economy', 'finance', 'stocks', 'market', 'trade', 'bsp', 'pse', 'inflation'],
-        'sports': ['sports', 'pba', 'nba', 'gilas', 'basketball', 'football', 'boxing', 'uaap', 'ncaa'],
-        'arts-entertainment-culture': ['entertainment', 'celebrity', 'movie', 'music', 'showbiz', 'artist', 'concert'],
-        'science-technology': ['technology', 'tech', 'software', 'internet', 'gadget', 'crypto', 'fintech', 'science', 'space'],
-        'health-medicine': ['health', 'medical', 'doh', 'covid-19', 'virus', 'hospital', 'doctor', 'vaccine'],
-        'world-current-affairs': ['world', 'international', 'foreign', 'global', 'china', 'usa', 'united states', 'war', 'ukraine'],
-        'law-crime-justice': ['crime', 'police', 'arrest', 'drug', 'murder', 'court', 'justice', 'pnp', 'nbi'],
-        'lifestyle-leisure': ['lifestyle', 'travel', 'food', 'restaurant', 'fashion', 'beauty', 'resort'],
-        'social-issues': ['human rights', 'education', 'religion', 'labor', 'strike', 'protest']
+    # LEAF-LEVEL CATEGORIES (Level 3-4) - Most specific, checked first
+    # These map to the deepest taxonomy levels
+    leaf_categories = {
+        # World & Current Affairs > International Relations
+        'diplomacy': ['diplomacy', 'diplomatic', 'ambassador', 'embassy', 'consulate'],
+        'summits': ['summit', 'g7', 'g20', 'asean summit', 'apec summit'],
+        'treaties': ['treaty', 'accord', 'bilateral agreement', 'trade deal'],
+        'foreign-aid': ['foreign aid', 'humanitarian aid', 'development assistance'],
+        'sanctions': ['sanctions', 'embargo', 'trade restrictions'],
+        'united-nations': ['united nations', 'un security council', 'unesco', 'unicef', 'who'],
+        'nato': ['nato', 'north atlantic treaty'],
+        
+        # World & Current Affairs > Armed Conflict & War
+        'civil-wars': ['civil war', 'insurgency', 'rebel', 'militia'],
+        'peacekeeping': ['peacekeeping', 'peace talks', 'ceasefire', 'armistice'],
+        'wmds': ['nuclear weapon', 'chemical weapon', 'biological weapon', 'wmd'],
+        'refugees-displacement': ['refugee', 'displaced', 'asylum seeker', 'migrant crisis'],
+        'war-crimes': ['war crime', 'genocide', 'ethnic cleansing', 'crimes against humanity'],
+        'coups-detat': ['coup', 'military takeover', 'junta', 'overthrow'],
+        
+        # World & Current Affairs > Politics & Government > Elections
+        'voting': ['voting', 'ballot', 'precinct', 'comelec', 'electoral'],
+        'polling': ['poll', 'survey', 'approval rating', 'exit poll'],
+        'campaign-finance': ['campaign finance', 'political donation', 'super pac'],
+        'voter-fraud': ['voter fraud', 'election fraud', 'rigging', 'vote buying'],
+        
+        # World & Current Affairs > Politics & Government > Legislative
+        'parliaments-congresses': ['congress', 'senate', 'house of representatives', 'parliament', 'lawmaker', 'senator', 'congressman'],
+        'bills': ['bill', 'proposed law', 'legislation', 'house bill', 'senate bill'],
+        'amendments': ['amendment', 'constitutional amendment'],
+        'vetoes': ['veto', 'pocket veto'],
+        
+        # World & Current Affairs > Politics & Government > Executive
+        'heads-of-state': ['president', 'prime minister', 'marcos', 'duterte', 'bongbong', 'bbm'],
+        'cabinets': ['cabinet', 'secretary', 'department head', 'minister'],
+        'executive-orders': ['executive order', 'presidential proclamation', 'administrative order'],
+        
+        # World & Current Affairs > Politics & Government > Judicial
+        'supreme-courts': ['supreme court', 'chief justice', 'associate justice'],
+        'constitutional-law': ['constitutional', 'constitution', 'charter change', 'cha-cha'],
+        'nominations': ['judicial nomination', 'court appointment'],
+        
+        # World & Current Affairs > Disasters & Emergencies > Natural
+        'earthquakes': ['earthquake', 'tremor', 'seismic', 'magnitude', 'phivolcs'],
+        'hurricanes-typhoons': ['typhoon', 'hurricane', 'cyclone', 'storm signal', 'pagasa', 'super typhoon'],
+        'floods': ['flood', 'flooding', 'flash flood', 'overflow'],
+        'wildfires': ['wildfire', 'forest fire', 'bushfire'],
+        'droughts': ['drought', 'water shortage', 'el nino', 'dry spell'],
+        'tsunamis': ['tsunami', 'tidal wave'],
+        
+        # World & Current Affairs > Disasters & Emergencies > Man-made
+        'industrial-accidents': ['industrial accident', 'factory explosion', 'chemical spill', 'oil spill'],
+        'structural-failures': ['building collapse', 'bridge collapse', 'structural failure'],
+        'transport-accidents': ['plane crash', 'train derailment', 'ship sinking', 'ferry accident', 'bus accident'],
+        
+        # Business, Finance & Economy > Economy
+        'inflation': ['inflation', 'consumer price', 'cpi', 'price hike', 'cost of living'],
+        'interest-rates': ['interest rate', 'bsp rate', 'lending rate', 'monetary policy'],
+        'gdp': ['gdp', 'gross domestic product', 'economic growth', 'economic output'],
+        'recession': ['recession', 'economic downturn', 'depression', 'economic crisis'],
+        'unemployment-rates': ['unemployment', 'jobless', 'layoff', 'retrenchment'],
+        'trade-deficits': ['trade deficit', 'trade surplus', 'trade balance', 'export', 'import'],
+        'central-banks': ['central bank', 'bsp', 'bangko sentral', 'federal reserve'],
+        
+        # Business, Finance & Economy > Markets & Investing
+        'stocks': ['stock', 'pse', 'psei', 'share price', 'equity', 'wall street', 'nasdaq', 'dow jones'],
+        'bonds': ['bond', 'treasury', 'debt securities', 'fixed income'],
+        'commodities': ['commodity', 'gold price', 'oil price', 'copper', 'nickel'],
+        'mutual-funds': ['mutual fund', 'uitf', 'investment fund'],
+        'ipos': ['ipo', 'initial public offering', 'stock listing'],
+        'cryptocurrency-blockchain': ['crypto', 'bitcoin', 'ethereum', 'blockchain', 'nft', 'defi'],
+        'forex': ['forex', 'peso dollar', 'exchange rate', 'currency'],
+        
+        # Business, Finance & Economy > Corporate Business
+        'mergers-acquisitions': ['merger', 'acquisition', 'buyout', 'takeover'],
+        'earnings-reports': ['earnings', 'quarterly report', 'financial results', 'profit', 'revenue'],
+        'executive-changes': ['ceo', 'executive appointment', 'board of directors'],
+        'startups-venture-capital': ['startup', 'venture capital', 'seed funding', 'series a', 'unicorn'],
+        'bankruptcy': ['bankruptcy', 'insolvency', 'debt restructuring', 'chapter 11'],
+        
+        # Business, Finance & Economy > Personal Finance
+        'real-estate-mortgages': ['mortgage', 'home loan', 'real estate', 'property prices', 'housing'],
+        'taxes': ['tax', 'bir', 'income tax', 'vat', 'tax filing', 'tax evasion'],
+        'retirement-pensions': ['retirement', 'pension', 'sss', 'gsis', '401k'],
+        'credit-cards-debt': ['credit card', 'debt', 'loan', 'lending'],
+        'insurance': ['insurance', 'life insurance', 'health insurance', 'philhealth'],
+        
+        # Business, Finance & Economy > Industries
+        'automotive-industry': ['automotive industry', 'car sales', 'vehicle production'],
+        'energy-industry': ['energy sector', 'oil company', 'power plant', 'meralco'],
+        'retail-industry': ['retail', 'mall', 'sm', 'ayala malls', 'robinsons'],
+        'manufacturing': ['manufacturing', 'factory', 'industrial production'],
+        'logistics-supply-chain': ['logistics', 'supply chain', 'shipping', 'freight'],
+        'agriculture': ['agriculture', 'farming', 'crop', 'harvest', 'rice', 'palay'],
+        
+        # Law, Crime & Justice > Crime
+        'violent-crime': ['murder', 'homicide', 'assault', 'robbery', 'kidnapping', 'rape'],
+        'financial-white-collar': ['fraud', 'embezzlement', 'money laundering', 'corruption', 'graft'],
+        'cybercrime': ['cybercrime', 'hacking', 'phishing', 'ransomware', 'data breach'],
+        'organized-crime': ['syndicate', 'cartel', 'mafia', 'gang', 'drug lord'],
+        
+        # Law, Crime & Justice > Law Enforcement
+        'police-procedure': ['police', 'pnp', 'law enforcement', 'investigation'],
+        'brutality-misconduct': ['police brutality', 'misconduct', 'abuse of power'],
+        'surveillance': ['surveillance', 'wiretapping', 'cctv', 'monitoring'],
+        'arrests': ['arrest', 'apprehension', 'warrant', 'detained'],
+        
+        # Law, Crime & Justice > Justice System
+        'trials': ['trial', 'hearing', 'court case', 'prosecution'],
+        'verdicts': ['verdict', 'guilty', 'acquittal', 'conviction'],
+        'sentencing': ['sentence', 'imprisonment', 'life sentence', 'death penalty'],
+        'prisons-corrections': ['prison', 'jail', 'inmate', 'bucor', 'bjmp'],
+        'capital-punishment': ['death penalty', 'execution', 'lethal injection'],
+        'civil-litigation': ['lawsuit', 'civil case', 'damages', 'settlement'],
+        
+        # Law, Crime & Justice > Terrorism
+        'domestic-extremism': ['domestic terrorism', 'extremist', 'radical'],
+        'international-terrorism': ['terrorist attack', 'isis', 'al-qaeda', 'bombing'],
+        'counter-terrorism': ['counter-terrorism', 'anti-terrorism', 'atr'],
+        
+        # Science & Technology > Technology
+        'consumer-tech': ['smartphone', 'iphone', 'samsung', 'gadget', 'tablet', 'laptop'],
+        'software-internet': ['software', 'app', 'website', 'social media', 'facebook', 'tiktok', 'google'],
+        'hardware': ['processor', 'chip', 'semiconductor', 'cpu', 'gpu', 'nvidia'],
+        
+        # Science & Technology > Science
+        'space': ['space', 'nasa', 'rocket', 'satellite', 'astronaut', 'mars', 'moon'],
+        'biology-genetics': ['biology', 'genetics', 'dna', 'gene', 'evolution', 'species'],
+        'physics-chemistry': ['physics', 'chemistry', 'particle', 'quantum', 'element'],
+        'environment': ['climate change', 'global warming', 'carbon', 'emissions', 'pollution', 'environmental'],
+        
+        # Health & Medicine > Public Health
+        'pandemics-epidemics': ['pandemic', 'epidemic', 'outbreak', 'covid', 'coronavirus', 'mpox', 'monkeypox'],
+        'vaccines': ['vaccine', 'vaccination', 'immunization', 'booster', 'pfizer', 'moderna'],
+        'health-policy': ['health policy', 'doh', 'healthcare reform', 'universal health'],
+        'obesity': ['obesity', 'overweight', 'weight loss'],
+        
+        # Health & Medicine > Medical Research
+        'cancer-research': ['cancer', 'tumor', 'oncology', 'chemotherapy', 'carcinoma'],
+        'alzheimers-dementia': ['alzheimer', 'dementia', 'cognitive decline', 'memory loss'],
+        'stem-cells': ['stem cell', 'regenerative medicine'],
+        'clinical-trials': ['clinical trial', 'drug trial', 'fda approval'],
+        
+        # Health & Medicine > Mental Health
+        'depression': ['depression', 'depressed', 'major depressive'],
+        'anxiety': ['anxiety', 'panic attack', 'anxious'],
+        'addiction': ['addiction', 'substance abuse', 'rehabilitation', 'rehab'],
+        'therapy-psychology': ['therapy', 'psychologist', 'psychiatrist', 'counseling', 'mental health'],
+        
+        # Health & Medicine > Nutrition & Fitness
+        'diets': ['diet', 'keto', 'intermittent fasting', 'weight loss'],
+        'exercise-trends': ['exercise', 'workout', 'gym', 'fitness'],
+        'supplements': ['supplement', 'vitamin', 'protein powder'],
+        
+        # Sports > Team Sports
+        'football-soccer': ['football', 'soccer', 'fifa', 'premier league', 'la liga', 'champions league', 'azkals'],
+        'basketball': ['basketball', 'nba', 'pba', 'gilas', 'uaap basketball', 'ncaa basketball', 'lakers', 'warriors'],
+        'american-football': ['nfl', 'american football', 'super bowl', 'touchdown'],
+        'baseball': ['baseball', 'mlb', 'home run'],
+        'hockey': ['hockey', 'nhl', 'ice hockey'],
+        'rugby': ['rugby', 'world rugby'],
+        'cricket': ['cricket', 'ipl', 'test match'],
+        
+        # Sports > Individual Sports
+        'tennis': ['tennis', 'wimbledon', 'us open', 'australian open', 'french open', 'nadal', 'djokovic'],
+        'golf': ['golf', 'pga', 'masters', 'tiger woods'],
+        'boxing': ['boxing', 'pacquiao', 'manny pacquiao', 'heavyweight', 'knockout', 'wbc', 'wba'],
+        'mma-ufc': ['mma', 'ufc', 'mixed martial arts', 'brandon vera'],
+        'motorsports': ['formula 1', 'f1', 'nascar', 'motogp', 'racing'],
+        'athletics': ['athletics', 'track and field', 'marathon', 'olympics 100m'],
+        'swimming': ['swimming', 'swimmer', 'olympic swimming'],
+        
+        # Sports > Events
+        'olympics': ['olympic', 'olympics', 'tokyo 2020', 'paris 2024', 'olympic games'],
+        'world-cup': ['world cup', 'fifa world cup'],
+        'super-bowl': ['super bowl'],
+        'wimbledon': ['wimbledon'],
+        
+        # Sports > Business of Sports
+        'player-contracts': ['player contract', 'signing', 'trade', 'free agent'],
+        'stadiums': ['stadium', 'arena', 'sports venue'],
+        'sponsorships': ['sponsorship', 'endorsement', 'athlete endorsement'],
+        'gambling-fantasy-sports': ['sports betting', 'fantasy sports', 'gambling'],
+        
+        # Arts, Entertainment & Culture > Movies
+        'box-office': ['box office', 'opening weekend', 'blockbuster'],
+        'movie-reviews': ['movie review', 'film review', 'film critique'],
+        'movie-awards': ['oscar', 'academy awards', 'golden globe', 'best picture', 'best actor'],
+        'film-festivals': ['film festival', 'cannes', 'venice film festival', 'sundance'],
+        'streaming-services': ['netflix', 'disney+', 'hbo max', 'amazon prime video', 'streaming'],
+        
+        # Arts, Entertainment & Culture > Music
+        'music-releases': ['album release', 'single release', 'new song', 'music video'],
+        'concerts-festivals': ['concert', 'music festival', 'tour', 'live performance'],
+        'music-awards': ['grammy', 'billboard', 'mtv awards', 'brit awards'],
+        'music-genres': ['pop music', 'rock music', 'hip hop', 'k-pop', 'opm'],
+        
+        # Arts, Entertainment & Culture > Television
+        'series-premieres': ['series premiere', 'new show', 'tv series', 'premiere'],
+        'reality-tv': ['reality tv', 'reality show', 'survivor', 'big brother'],
+        'late-night': ['late night', 'talk show', 'jimmy fallon', 'jimmy kimmel'],
+        'tv-awards': ['emmy', 'emmy awards', 'tv award'],
+        
+        # Arts, Entertainment & Culture > Literature
+        'book-reviews': ['book review', 'literary review'],
+        'bestseller-lists': ['bestseller', 'best seller', 'nyt bestseller'],
+        'authors': ['author', 'novelist', 'writer', 'book signing'],
+        'poetry': ['poetry', 'poem', 'poet'],
+        
+        # Arts, Entertainment & Culture > Arts
+        'visual-arts': ['painting', 'sculpture', 'art exhibit', 'gallery'],
+        'performing-arts': ['theater', 'theatre', 'ballet', 'opera', 'broadway'],
+        'museums-galleries': ['museum', 'gallery', 'exhibit', 'exhibition'],
+        'auctions': ['art auction', 'sotheby', 'christie'],
+        
+        # Arts, Entertainment & Culture > Celebrity & Gossip
+        'relationships': ['celebrity relationship', 'dating', 'engaged', 'wedding', 'divorce'],
+        'scandals': ['scandal', 'controversy', 'affair'],
+        'paparazzi': ['paparazzi', 'spotted', 'candid'],
+        'influencers': ['influencer', 'content creator', 'youtuber', 'tiktoker', 'vlogger'],
+        
+        # Lifestyle & Leisure > Travel
+        'airlines': ['airline', 'flight', 'airfare', 'philippine airlines', 'cebu pacific'],
+        'hotels-resorts': ['hotel', 'resort', 'accommodation', 'booking'],
+        'tourism': ['tourism', 'tourist', 'destination', 'vacation'],
+        'passports-visas': ['passport', 'visa', 'travel document', 'immigration'],
+        'cruises': ['cruise', 'cruise ship', 'ocean liner'],
+        'adventure-travel': ['adventure travel', 'trekking', 'hiking', 'backpacking'],
+        
+        # Lifestyle & Leisure > Food & Drink
+        'restaurants': ['restaurant', 'dining', 'eatery', 'cafe'],
+        'recipes': ['recipe', 'cooking', 'how to cook'],
+        'wine-spirits': ['wine', 'whiskey', 'cocktail', 'beer', 'brewery'],
+        'food-safety': ['food safety', 'food poisoning', 'contamination'],
+        'chefs': ['chef', 'culinary', 'celebrity chef'],
+        
+        # Lifestyle & Leisure > Fashion & Beauty
+        'trends': ['fashion trend', 'style trend', 'trending'],
+        'fashion-week': ['fashion week', 'runway', 'model', 'designer'],
+        'cosmetics': ['makeup', 'cosmetics', 'skincare', 'beauty products'],
+        'luxury-goods': ['luxury', 'designer bag', 'rolex', 'gucci', 'louis vuitton'],
+        
+        # Lifestyle & Leisure > Home & Garden
+        'interior-design': ['interior design', 'home decor', 'furniture'],
+        'real-estate-trends': ['real estate trend', 'property market', 'condo'],
+        'diy-renovation': ['diy', 'renovation', 'home improvement'],
+        'gardening': ['gardening', 'plants', 'landscaping'],
+        
+        # Lifestyle & Leisure > Automotive (Consumer)
+        'car-reviews': ['car review', 'test drive', 'vehicle review'],
+        'electric-vehicles': ['electric vehicle', 'ev', 'tesla', 'hybrid car'],
+        'classic-cars': ['classic car', 'vintage car', 'collector car'],
+        
+        # Social Issues > Civil Rights
+        'racial-justice': ['racial justice', 'racism', 'discrimination', 'racial equality'],
+        'lgbtq-rights': ['lgbtq', 'gay rights', 'same-sex', 'pride', 'transgender'],
+        'gender-equality': ['gender equality', 'feminism', 'women rights', 'metoo'],
+        'disability-rights': ['disability rights', 'pwd', 'accessibility'],
+        
+        # Social Issues > Education
+        'student-debt': ['student debt', 'student loan', 'tuition'],
+        'k-12-policy': ['k-12', 'deped', 'elementary', 'high school', 'public school'],
+        'higher-education': ['university', 'college', 'ched', 'state university'],
+        'online-learning': ['online learning', 'e-learning', 'distance learning', 'modular'],
+        
+        # Social Issues > Religion & Faith
+        'catholic-church': ['catholic', 'pope', 'vatican', 'bishop', 'cbcp'],
+        'islam': ['islam', 'muslim', 'mosque', 'ramadan', 'eid'],
+        'judaism': ['jewish', 'synagogue', 'rabbi'],
+        'religious-holidays': ['christmas', 'easter', 'holy week', 'all saints'],
+        'secularism': ['secular', 'separation of church and state'],
+        
+        # Social Issues > Labor
+        'unions-strikes': ['union', 'strike', 'labor union', 'walkout', 'picket'],
+        'minimum-wage': ['minimum wage', 'wage hike', 'salary increase'],
+        'gig-economy': ['gig economy', 'freelance', 'grab', 'uber', 'delivery rider'],
+        'remote-work': ['remote work', 'work from home', 'wfh', 'hybrid work'],
+        
+        # Opinion & Editorial
+        'editorials': ['editorial', 'editor opinion'],
+        'op-eds': ['op-ed', 'opinion piece', 'commentary'],
+        'letters-to-editor': ['letter to editor', 'reader letter'],
+        'cartoons': ['editorial cartoon', 'political cartoon'],
     }
-
-    for category, keywords in categories.items():
+    
+    # PARENT-LEVEL CATEGORIES (Level 2) - Checked if no leaf match
+    parent_categories = {
+        # World & Current Affairs children
+        'international-relations': ['diplomacy', 'foreign policy', 'bilateral', 'multilateral'],
+        'armed-conflict-war': ['war', 'conflict', 'military', 'troops', 'soldier'],
+        'politics-government': ['politics', 'government', 'political', 'administration'],
+        'disasters-emergencies': ['disaster', 'emergency', 'calamity', 'rescue'],
+        'natural-disasters': ['natural disaster', 'nature disaster'],
+        'man-made-disasters': ['accident', 'disaster'],
+        
+        # Business children
+        'economy': ['economy', 'economic', 'macroeconomic'],
+        'markets-investing': ['market', 'investing', 'investment', 'investor'],
+        'corporate-business': ['corporate', 'company', 'business', 'firm'],
+        'personal-finance': ['personal finance', 'savings', 'budget'],
+        'industries': ['industry', 'sector'],
+        
+        # Law children
+        'crime': ['crime', 'criminal', 'illegal'],
+        'law-enforcement': ['law enforcement', 'police'],
+        'justice-system': ['justice', 'court', 'legal'],
+        'terrorism': ['terror', 'terrorist'],
+        
+        # Science children
+        'technology': ['technology', 'tech', 'digital', 'innovation'],
+        'science': ['science', 'scientific', 'research', 'discovery'],
+        
+        # Health children
+        'public-health': ['public health', 'doh', 'health department'],
+        'medical-research': ['medical research', 'study', 'clinical'],
+        'mental-health': ['mental health', 'psychological'],
+        'nutrition-fitness': ['nutrition', 'fitness', 'health'],
+        
+        # Sports children
+        'team-sports': ['team sport', 'league', 'championship'],
+        'individual-sports': ['individual sport', 'athlete'],
+        'sports-events': ['sports event', 'tournament', 'championship'],
+        'business-of-sports': ['sports business', 'sports industry'],
+        
+        # Entertainment children
+        'movies': ['movie', 'film', 'cinema', 'hollywood'],
+        'music': ['music', 'song', 'singer', 'band', 'album'],
+        'television': ['television', 'tv show', 'series'],
+        'literature': ['book', 'novel', 'literature', 'reading'],
+        'arts-culture': ['art', 'culture', 'cultural'],
+        'celebrity-gossip': ['celebrity', 'showbiz', 'entertainment'],
+        
+        # Lifestyle children
+        'travel': ['travel', 'trip', 'vacation', 'tourist'],
+        'food-drink': ['food', 'drink', 'cuisine', 'dining'],
+        'fashion-beauty': ['fashion', 'beauty', 'style'],
+        'home-garden': ['home', 'house', 'garden'],
+        'consumer-automotive': ['car', 'vehicle', 'automotive'],
+        
+        # Social children
+        'civil-rights': ['civil rights', 'human rights', 'equality'],
+        'education': ['education', 'school', 'student', 'teacher'],
+        'religion-faith': ['religion', 'faith', 'church', 'spiritual'],
+        'labor': ['labor', 'worker', 'employment', 'job'],
+        
+        # Opinion
+        'opinion-editorial': ['opinion', 'editorial', 'commentary'],
+    }
+    
+    # ROOT-LEVEL CATEGORIES (Level 1) - Fallback only
+    root_categories = {
+        'world-current-affairs': ['world', 'international', 'global', 'foreign', 'nation'],
+        'business-finance-economy': ['business', 'finance', 'economy', 'money', 'peso'],
+        'law-crime-justice': ['law', 'crime', 'justice', 'legal', 'court'],
+        'science-technology': ['science', 'technology', 'tech'],
+        'health-medicine': ['health', 'medicine', 'medical', 'hospital', 'doctor'],
+        'sports': ['sports', 'athlete', 'game', 'match', 'player'],
+        'arts-entertainment-culture': ['entertainment', 'showbiz', 'celebrity', 'star'],
+        'lifestyle-leisure': ['lifestyle', 'leisure', 'living'],
+        'social-issues': ['social', 'society', 'community', 'issue'],
+    }
+    
+    # Check leaf categories first (most specific)
+    for category, keywords in leaf_categories.items():
         if any(keyword in text_to_search for keyword in keywords):
             return category
-
-    return 'world-current-affairs'  # Default fallback (was general)
+    
+    # Check parent categories next
+    for category, keywords in parent_categories.items():
+        if any(keyword in text_to_search for keyword in keywords):
+            return category
+    
+    # Check root categories last
+    for category, keywords in root_categories.items():
+        if any(keyword in text_to_search for keyword in keywords):
+            return category
+    
+    return 'world-current-affairs'  # Default fallback
 
 
 class ArticleValidator:
@@ -476,7 +1100,15 @@ def fetch_and_validate(url: str, config: Dict) -> Dict:
         author = _extract_author(soup)
         published_date = _extract_published_date(soup)
         image_url = _extract_image_url(soup)
-        category = _determine_category(title, content)
+        
+        # Try to extract category from source website first (most accurate)
+        category = _extract_source_category(url, soup)
+        if category:
+            print(f"     [INFO] Category from source: {category}")
+        else:
+            # Fallback to keyword-based categorization
+            category = _determine_category(title, content)
+            print(f"     [INFO] Category from keywords: {category}")
 
         # Validate
         validator = ArticleValidator(config.get('quality_filter', {}))
