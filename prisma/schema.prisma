@@ -59,11 +59,49 @@ model Article {
   updatedAt   DateTime @updatedAt
   category    Category @relation(fields: [categoryId], references: [id])
   source      Source   @relation(fields: [sourceId], references: [id])
+  article_tags ArticleTag[]
+  ai_classifications AiClassification[]
 
   @@index([publishedAt])
   @@index([categoryId])
   @@index([sourceId])
   @@index([wordCount])
+}
+
+model Tag {
+  id        String       @id @default(cuid())
+  name      String       @unique
+  slug      String?      // Optional: might not be in migration but good to have
+  createdAt DateTime     @default(now())
+  articles  ArticleTag[]
+  
+  // Note: embedding column is handled by database extension (vector), Prisma doesn't support it natively yet type-wise, 
+  // but we can query it via raw SQL if needed, or ignore it here. 
+  // To avoid Prisma migration trying to drop it, we might need to be careful with migrations, 
+  // but for 'pull' or 'generate' it's fine.
+
+  @@map("tags")
+}
+
+model ArticleTag {
+  article_id String
+  tag_id     String
+  article    Article @relation(fields: [article_id], references: [id], onDelete: Cascade)
+  tag        Tag     @relation(fields: [tag_id], references: [id], onDelete: Cascade)
+
+  @@id([article_id, tag_id])
+  @@map("article_tags")
+}
+
+model AiClassification {
+  id          String   @id @default(cuid())
+  article_id  String
+  suggestions Json
+  applied     Boolean  @default(false)
+  created_at  DateTime @default(now())
+  article     Article  @relation(fields: [article_id], references: [id], onDelete: Cascade)
+
+  @@map("ai_classifications")
 }
 
 model AdPlacement {

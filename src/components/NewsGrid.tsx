@@ -120,6 +120,7 @@ export function NewsGrid({
                   originalUrl={item.data.originalUrl}
                   isSubscriber={isSubscriber}
                   onAISynthesis={onAISynthesis}
+                  tags={item.data.tags}
                 />
               ) : (
                 <AdSlot

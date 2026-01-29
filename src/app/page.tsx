@@ -373,6 +373,7 @@ interface APIArticle {
     name: string
     slug: string
   }
+  tags: string[]
 }
 
 export default function Home() {

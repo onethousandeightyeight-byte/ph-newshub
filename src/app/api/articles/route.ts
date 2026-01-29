@@ -18,6 +18,7 @@ export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams
     const categorySlug = searchParams.get('category')
+    const tagSlug = searchParams.get('tag')
     const limit = parseInt(searchParams.get('limit') || '50')
     const offset = parseInt(searchParams.get('offset') || '0')
     const includeAds = searchParams.get('includeAds') !== 'false'
@@ -36,6 +37,16 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    if (tagSlug) {
+      where.article_tags = {
+        some: {
+          tag: {
+            name: { equals: tagSlug, mode: 'insensitive' }
+          }
+        }
+      }
+    }
+
     // Fetch articles with related data
     const articles = await db.article.findMany({
       where,
@@ -48,6 +59,13 @@ export async function GET(request: NextRequest) {
         },
         source: {
           select: { name: true, domainUrl: true }
+        },
+        article_tags: {
+          select: {
+            tag: {
+              select: { name: true }
+            }
+          }
         }
       }
     })
@@ -69,7 +87,8 @@ export async function GET(request: NextRequest) {
       category: {
         name: article.category.name,
         slug: article.category.slug
-      }
+      },
+      tags: article.article_tags?.map((at: any) => at.tag.name) || []
     }))
 
     // Inject ads if requested
@@ -210,7 +229,8 @@ export async function POST(request: NextRequest) {
         imageUrl,
         author,
         wordCount,
-        categoryId: validCategoryId,
+        // Don't update categoryId as it might have been set by AI or manually
+        // categoryId: validCategoryId,
         sourceId: source.id
       },
       create: {

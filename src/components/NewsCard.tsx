@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { ExternalLink, Clock, Newspaper } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { motion } from 'framer-motion'
+import Link from 'next/link'
 
 interface NewsCardProps {
   id: string
@@ -18,6 +19,7 @@ interface NewsCardProps {
   originalUrl: string
   isSubscriber: boolean
   onAISynthesis?: (articleId: string) => void
+  tags?: string[]
 }
 
 export function NewsCard({
@@ -30,7 +32,8 @@ export function NewsCard({
   categoryName,
   originalUrl,
   isSubscriber,
-  onAISynthesis
+  onAISynthesis,
+  tags
 }: NewsCardProps) {
   return (
     <motion.div
@@ -54,7 +57,7 @@ export function NewsCard({
             </Badge>
           </div>
         )}
-        
+
         <CardHeader className="space-y-2 pb-3">
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <Newspaper className="h-4 w-4" />
@@ -74,6 +77,20 @@ export function NewsCard({
           <p className="text-sm text-muted-foreground line-clamp-3">
             {snippet}
           </p>
+          {tags && tags.length > 0 && (
+            <div className="mt-3 flex flex-wrap gap-1.5">
+              {tags.slice(0, 4).map(tag => (
+                <Link key={tag} href={`/tags/${encodeURIComponent(tag)}`}>
+                  <Badge variant="secondary" className="text-xs px-2 py-0.5 h-auto hover:bg-secondary/80 cursor-pointer">
+                    {tag.replace(/-/g, ' ')}
+                  </Badge>
+                </Link>
+              ))}
+              {tags.length > 4 && (
+                <span className="text-xs text-muted-foreground self-center">+{tags.length - 4}</span>
+              )}
+            </div>
+          )}
         </CardContent>
 
         <CardFooter className="flex gap-2 pt-3 border-t">
@@ -93,7 +110,7 @@ export function NewsCard({
               <ExternalLink className="h-4 w-4" />
             </a>
           </Button>
-          
+
           {isSubscriber && onAISynthesis && (
             <Button
               size="sm"
